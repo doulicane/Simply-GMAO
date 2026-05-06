@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Raleway:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 150 30% 5%;
+    --foreground: 40 20% 93%;
+    --card: 160 25% 10%;
+    --card-foreground: 40 20% 93%;
+    --popover: 160 25% 10%;
+    --popover-foreground: 40 20% 93%;
+    --primary: 30 50% 72%;
+    --primary-foreground: 150 30% 5%;
+    --secondary: 160 20% 14%;
+    --secondary-foreground: 40 20% 93%;
+    --muted: 160 15% 16%;
+    --muted-foreground: 35 8% 45%;
+    --accent: 30 50% 72%;
+    --accent-foreground: 150 30% 5%;
+    --destructive: 350 55% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 160 20% 18%;
+    --input: 160 20% 14%;
+    --ring: 30 50% 72%;
+    --radius: 0.625rem;
+    --sidebar-background: 160 25% 10%;
+    --sidebar-foreground: 40 20% 93%;
+    --sidebar-primary: 30 50% 72%;
+    --sidebar-primary-foreground: 150 30% 5%;
+    --sidebar-accent: 160 20% 16%;
+    --sidebar-accent-foreground: 40 20% 93%;
+    --sidebar-border: 160 20% 18%;
+    --sidebar-ring: 30 50% 72%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply bg-ramondin-cream text-ramondin-text;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-ramondin-cream text-ramondin-text min-h-[100dvh];
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  #root {
+    @apply min-h-[100dvh] flex flex-col;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Raleway', sans-serif;
+  }
+
+  /* Scrollbar styling — dark warm tones */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2A3F38;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3D5A50;
+  }
+
+  /* Tabular numbers for data */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Mono font class */
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  .card-elevated {
+    @apply bg-ramondin-green-dark rounded-xl border border-[#1D3C34]/50 shadow-card;
+  }
+
+  .card-elevated-hover {
+    @apply card-elevated transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover hover:border-ramondin-gold/30;
+  }
+
+  .input-industrial {
+    @apply h-10 px-4 bg-ramondin-green-dark border border-[#1D3C34]/60 rounded-md text-ramondin-text text-sm
+           focus:outline-none focus:border-ramondin-gold focus:shadow-glow
+           placeholder:text-ramondin-warm-gray;
+  }
+
+  .btn-primary {
+    @apply h-10 px-4 bg-ramondin-gold text-ramondin-cream font-semibold text-sm rounded-md
+           hover:bg-ramondin-gold-light hover:shadow-glow-lg
+           active:scale-[0.98] transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply h-10 px-4 bg-transparent text-ramondin-gold font-semibold text-sm rounded-md
+           border border-ramondin-gold/50 hover:bg-ramondin-gold/10
+           active:scale-[0.98] transition-all duration-150;
+  }
+
+  .btn-ghost {
+    @apply h-10 px-4 bg-transparent text-ramondin-text font-medium text-sm rounded-md
+           hover:bg-ramondin-green-light/30 active:scale-[0.98] transition-all duration-150;
+  }
+
+  .badge-status {
+    @apply inline-flex items-center h-[22px] px-2.5 rounded-[11px] text-[11px] font-semibold uppercase tracking-wide;
+  }
+
+  .nav-item-active {
+    @apply text-ramondin-gold bg-ramondin-gold/10 border-l-[3px] border-ramondin-gold;
+  }
+
+  .page-transition-enter {
+    @apply opacity-0 translate-y-4;
+  }
+  .page-transition-enter-active {
+    @apply opacity-100 translate-y-0 transition-all duration-150 ease-out;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

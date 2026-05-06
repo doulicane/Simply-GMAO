@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  RESPONSABLE
+  TECHNICIEN
+  OPERATEUR
+  MAGASINIER
+  HSE
+  ADMIN
+}
+
+enum WorkOrderStatus {
+  CREE
+  PLANIFIE
+  EN_COURS
+  TERMINE
+  CLOTURE
+  ANNULE
+}
+
+enum WorkOrderType {
+  CORRECTIF
+  PREVENTIF
+  CONDITIONNEL
+  AMELIORATION
+}
+
+enum Priority {
+  URGENTE
+  HAUTE
+  MOYENNE
+  BASSE
+}
+
+enum EquipmentCriticality {
+  CRITIQUE
+  ELEVEE
+  MOYENNE
+  FAIBLE
+}
+
+enum EquipmentStatus {
+  EN_SERVICE
+  EN_ARRET
+  EN_MAINTENANCE
+  HORS_SERVICE
+}
+
+enum StockMovementType {
+  ENTREE
+  SORTIE
+  RESERVATION
+  TRANSFERT
+  AJUSTEMENT
+  RETOUR
+}
+
+enum TicketStatus {
+  CREE
+  EN_ATTENTE
+  EN_COURS
+  RESOLU
+  REJETE
+  CONVERTI_EN_BT
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  role      Role
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations — WorkOrder (demandeur, technicien, responsable, validateur)
+  workOrdersCreated      WorkOrder[] @relation("WorkOrderDemandeur")
+  workOrdersAssigned     WorkOrder[] @relation("WorkOrderTechnicien")
+  workOrdersSupervised   WorkOrder[] @relation("WorkOrderResponsable")
+  workOrdersValidated    WorkOrder[] @relation("WorkOrderValidatedBy")
+
+  // Relations — StockMovement
+  stockMovements StockMovement[]
+
+  // Relations — Document
+  documentsUploaded Document[] @relation("DocumentUploader")
+
+  // Relations — Notification
+  notifications Notification[]
+
+  // Relations — AuditLog
+  auditLogs AuditLog[]
+
+  // Relations — Ticket
+  ticketsCreated Ticket[] @relation("TicketOperateur")
+
+  @@map("users")
+}
+
+model Site {
+  id       String @id @default(uuid())
+  name     String
+  location String?
+  code     String @unique
+
+  // Relations
+  zones Zone[]
+
+  @@map("sites")
+}
+
+model Zone {
+  id     String @id @default(uuid())
+  name   String
+  code   String @unique
+  siteId String @map("site_id")
+
+  // Relations
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  lignes Ligne[]
+
+  @@map("zones")
+}
+
+model Ligne {
+  id     String @id @default(uuid())
+  name   String
+  code   String @unique
+  zoneId String @map("zone_id")
+
+  // Relations
+  zone       Zone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  equipments Equipment[]
+
+  @@map("lignes")
+}
+
+model Equipment {
+  id                String               @id @default(uuid())
+  code              String               @unique
+  name              String
+  type              String
+  criticality       EquipmentCriticality
+  localisation      String?
+  ligneId           String?              @map("ligne_id")
+  contactAlimentaire Boolean             @default(false) @map("contact_alimentaire")
+  dateAchat         DateTime?            @map("date_achat")
+  numSerie          String?              @map("num_serie")
+  constructeur      String?
+  dateMiseService   DateTime?            @map("date_mise_service")
+  statut            EquipmentStatus      @default(EN_SERVICE)
+  compteurActuel    Decimal?             @default(0) @map("compteur_actuel") @db.Decimal(15, 2)
+  compteurUnite     String?              @map("compteur_unite")
+  qrCode            String?              @unique @map("qr_code")
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  // Relations
+  ligne Ligne? @relation(fields: [ligneId], references: [id], onDelete: SetNull)
+
+  workOrders     WorkOrder[]
+  preventivePlans PreventivePlan[]
+  documents      Document[]
+  tickets        Ticket[]
+
+  @@map("equipments")
+}
+
+model WorkOrder {
+  id                     String          @id @default(uuid())
+  numero                 String          @unique
+  title                  String
+  description            String?
+  equipmentId            String?         @map("equipment_id")
+  type                   WorkOrderType
+  priority               Priority
+  status                 WorkOrderStatus @default(CREE)
+  demandeurId            String          @map("demandeur_id")
+  technicienId           String?         @map("technicien_id")
+  responsableId          String?         @map("responsable_id")
+  dateCreation           DateTime        @default(now()) @map("date_creation")
+  datePlanifiee          DateTime?       @map("date_planifiee")
+  dateDebut              DateTime?       @map("date_debut")
+  dateFin                DateTime?       @map("date_fin")
+  dureeMinutes           Int?            @map("duree_minutes")
+  causePanne             String?         @map("cause_panne")
+  actionsRealisees       String?         @map("actions_realisees")
+  piecesConsommees       String?         @map("pieces_consommees")
+  photos                 String[]        @default([])
+  commentaireCloture     String?         @map("commentaire_cloture")
+  coutMainOeuvre         Decimal?        @default(0) @map("cout_main_oeuvre") @db.Decimal(10, 2)
+  validatedBy            String?         @map("validated_by")
+  validatedAt            DateTime?       @map("validated_at")
+
+  // Relations
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  demandeur   User       @relation("WorkOrderDemandeur", fields: [demandeurId], references: [id])
+  technicien  User?      @relation("WorkOrderTechnicien", fields: [technicienId], references: [id])
+  responsable User?      @relation("WorkOrderResponsable", fields: [responsableId], references: [id])
+  validateur  User?      @relation("WorkOrderValidatedBy", fields: [validatedBy], references: [id])
+
+  stockMovements StockMovement[]
+  ticket         Ticket?
+
+  @@map("work_orders")
+}
+
+model PreventivePlan {
+  id              String    @id @default(uuid())
+  equipmentId     String    @map("equipment_id")
+  title           String
+  description     String?
+  frequencyType   String    @map("frequency_type")
+  frequencyValue  Int       @map("frequency_value")
+  checklist       Json?     // JSON array of checklist items
+  lastExecution   DateTime? @map("last_execution")
+  nextExecution   DateTime? @map("next_execution")
+  alerteAvantJours Int      @default(3) @map("alerte_avant_jours")
+  autoGenerateWO  Boolean   @default(true) @map("auto_generate_wo")
+  active          Boolean   @default(true)
+
+  // Relations
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("preventive_plans")
+}
+
+model StockItem {
+  id            String  @id @default(uuid())
+  code          String  @unique
+  name          String
+  famille       String
+  sousFamille   String? @map("sous_famille")
+  designation   String?
+  quantite      Decimal @default(0) @db.Decimal(10, 2)
+  stockMinimum  Decimal @map("stock_minimum") @db.Decimal(10, 2)
+  stockMaximum  Decimal? @map("stock_maximum") @db.Decimal(10, 2)
+  localisation  String?
+  unite         String?
+  prixUnitaire  Decimal? @map("prix_unitaire") @db.Decimal(10, 2)
+  fournisseur   String?
+  active        Boolean @default(true)
+
+  // Relations
+  stockMovements StockMovement[]
+
+  @@map("stock_items")
+}
+
+model StockMovement {
+  id            String            @id @default(uuid())
+  stockItemId   String            @map("stock_item_id")
+  type          StockMovementType
+  quantite      Decimal           @db.Decimal(10, 2)
+  date          DateTime          @default(now())
+  workOrderId   String?           @map("work_order_id")
+  utilisateurId String?           @map("utilisateur_id")
+  commentaire   String?
+
+  // Relations
+  stockItem   StockItem   @relation(fields: [stockItemId], references: [id])
+  workOrder   WorkOrder?  @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  utilisateur User?       @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
+
+  @@map("stock_movements")
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  equipmentId  String   @map("equipment_id")
+  filename     String
+  originalName String   @map("original_name")
+  type         String
+  path         String
+  uploadedBy   String   @map("uploaded_by")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  equipment  Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  uploader   User      @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+model Ticket {
+  id            String       @id @default(uuid())
+  numero        String       @unique
+  title         String
+  description   String?
+  equipmentId   String?      @map("equipment_id")
+  operateurId   String       @map("operateur_id")
+  status        TicketStatus @default(CREE)
+  priority      Priority     @default(MOYENNE)
+  photos        String[]     @default([])
+  workOrderId   String?      @map("work_order_id") @unique
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  operateur   User       @relation("TicketOperateur", fields: [operateurId], references: [id])
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+
+  @@map("tickets")
+}

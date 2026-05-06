@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+logs/
+uploads/
+backups/
+nginx/ssl/
+coverage/
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

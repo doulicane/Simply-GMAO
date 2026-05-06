@@ -1,0 +1,138 @@
+# =============================================================================
+# Docker Compose — GMAO Ramondin (Stack complete)
+# =============================================================================
+# Serveur dedie usine Ubuntu 22.04 LTS
+# Services : nginx (reverse proxy) + api (Node.js) + postgres (DB) + redis (cache)
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Nginx — Reverse Proxy + SSL + Fichiers statiques
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: gmao-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - gmao-uploads:/data/uploads:ro
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - gmao-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # 2. API Node.js — Backend GMAO
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gmao-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://${DB_USER:-gmao}:${DB_PASSWORD:-gmao_secret_2025}@postgres:5432/${DB_NAME:-ramondin_gmao}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
+      - JWT_ACCESS_EXPIRATION=${JWT_ACCESS_EXPIRATION:-15m}
+      - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION:-7d}
+      - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
+      - UPLOAD_DIR=/data/uploads
+      - MAX_FILE_SIZE=20971520
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PUBLIC_URL=${PUBLIC_URL:-https://gmao.ramondin.local}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://gmao.ramondin.local}
+    volumes:
+      - gmao-uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gmao-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # 3. PostgreSQL 16 — Base de donnees metier
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: gmao-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-ramondin_gmao}
+      - POSTGRES_USER=${DB_USER:-gmao}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-gmao_secret_2025}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - gmao-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gmao} -d ${DB_NAME:-ramondin_gmao}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # 4. Redis 7 — Cache + File d'attente BullMQ
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: gmao-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - gmao-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+# =============================================================================
+# Volumes persistants
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  gmao-uploads:
+    driver: local
+
+# =============================================================================
+# Reseau interne
+# =============================================================================
+networks:
+  gmao-network:
+    driver: bridge

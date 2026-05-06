@@ -1,0 +1,4 @@
+backend/
+prisma/
+.vercel
+node_modules/
