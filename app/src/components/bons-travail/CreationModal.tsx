@@ -241,16 +241,13 @@ export function CreationModal({ open, onClose, initialStatus = 'draft' }: Creati
                   <label className="text-xs font-medium text-text-secondary uppercase tracking-wide mb-1.5 block">
                     Technicien assigné
                   </label>
-                  <select
+                  <input
+                    type="text"
                     value={assignee}
                     onChange={(e) => setAssignee(e.target.value)}
-                    className="w-full h-10 px-3 bg-bg-input border border-[rgba(90,94,117,0.3)] rounded-md text-sm text-text-primary focus:outline-none focus:border-accent-teal focus:shadow-glow"
-                  >
-                    <option value="">Non assigné</option>
-                    <option value="Jean Martin">Jean Martin</option>
-                    <option value="Luc Bernard">Luc Bernard</option>
-                    <option value="Sophie Moreau">Sophie Moreau</option>
-                  </select>
+                    placeholder="Nom du technicien..."
+                    className="w-full h-10 px-3 bg-bg-input border border-[rgba(90,94,117,0.3)] rounded-md text-sm text-text-primary focus:outline-none focus:border-accent-teal focus:shadow-glow placeholder:text-text-muted"
+                  />
                 </div>
 
                 <div>

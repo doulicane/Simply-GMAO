@@ -1,0 +1,150 @@
+{
+  "app": {
+    "name": "GMAO Simply GMAO",
+    "tagline": "Mantenimiento industrial"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "equipments": "Equipos",
+    "workOrders": "Órdenes de Trabajo",
+    "planning": "Planificación",
+    "stocks": "Stock",
+    "preventive": "Mantenimiento Preventivo",
+    "tickets": "Tickets",
+    "import": "Importar",
+    "operatorPortal": "Portal Operario",
+    "magasinierSpace": "Espacio Almacén"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Conectarse",
+    "invalidCredentials": "Correo o contraseña incorrectos",
+    "sessionExpired": "Su sesión ha expirado"
+  },
+  "common": {
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "create": "Crear",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "yes": "Sí",
+    "no": "No",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "confirm": "Confirmar",
+    "export": "Exportar",
+    "print": "Imprimir",
+    "download": "Descargar",
+    "details": "Detalles",
+    "status": "Estado",
+    "priority": "Prioridad",
+    "type": "Tipo",
+    "date": "Fecha",
+    "technician": "Técnico",
+    "operator": "Operario",
+    "responsible": "Responsable"
+  },
+  "equipment": {
+    "title": "Equipos",
+    "code": "Código",
+    "name": "Nombre",
+    "type": "Tipo",
+    "status": "Estado",
+    "criticality": "Criticidad",
+    "location": "Ubicación",
+    "manufacturer": "Fabricante",
+    "serialNumber": "N° serie",
+    "counter": "Contador",
+    "subAssemblies": "Subconjuntos",
+    "documents": "Documentos",
+    "history": "Historial OT",
+    "preventive": "Mant. Preventivo",
+    "newWO": "Nueva OT",
+    "exportPDF": "Exportar PDF",
+    "qrCode": "Código QR"
+  },
+  "workOrder": {
+    "title": "Órdenes de Trabajo",
+    "number": "N° OT",
+    "create": "Crear una OT",
+    "duplicate": "Duplicar",
+    "status": {
+      "CREE": "Creada",
+      "PLANIFIE": "Planificada",
+      "EN_COURS": "En curso",
+      "TERMINE": "Terminada",
+      "CLOTURE": "Cerrada"
+    },
+    "type": {
+      "CORRECTIF": "Correctivo",
+      "PREVENTIF": "Preventivo",
+      "CONDITIONNEL": "Condicional",
+      "AMELIORATION": "Mejora",
+      "SECURITE": "Seguridad"
+    },
+    "priority": {
+      "URGENTE": "Urgente",
+      "HAUTE": "Alta",
+      "MOYENNE": "Media",
+      "BASSE": "Baja"
+    },
+    "start": "Iniciar",
+    "complete": "Terminar",
+    "close": "Cerrar",
+    "reopen": "Reabrir",
+    "assign": "Asignar",
+    "duration": "Duración",
+    "parts": "Piezas consumidas",
+    "photos": "Fotos",
+    "comments": "Comentarios",
+    "cause": "Causa avería",
+    "actions": "Acciones realizadas"
+  },
+  "dashboard": {
+    "title": "Panel",
+    "subtitle": "Visión general del mantenimiento",
+    "availability": "Disponibilidad",
+    "mttr": "Tiempo Medio de Reparación",
+    "mtbf": "Tiempo Medio Entre Averías",
+    "openWO": "OT en curso",
+    "preventiveCompliance": "Cumplimiento plan preventivo",
+    "monthlyReport": "Informe mensual",
+    "atexCompliance": "Conformidad ATEX"
+  },
+  "stock": {
+    "title": "Stock",
+    "code": "Código",
+    "name": "Nombre",
+    "family": "Familia",
+    "quantity": "Cantidad",
+    "minStock": "Stock mínimo",
+    "location": "Ubicación",
+    "lowStockAlert": "Alerta stock bajo"
+  },
+  "operator": {
+    "declareBreakdown": "Declarar una avería",
+    "scanQR": "Escanear QR",
+    "myRequests": "Mis solicitudes",
+    "breakdownType": "Tipo de avería",
+    "description": "Descripción",
+    "photo": "Añadir foto",
+    "submit": "Enviar solicitud",
+    "requestSent": "Solicitud enviada con éxito",
+    "kioskMode": "Modo quiosco",
+    "exitKiosk": "Salir modo quiosco",
+    "productionResumed": "Reanudación producción confirmada"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "markAllRead": "Marcar todo como leído",
+    "empty": "Sin notificaciones"
+  }
+}

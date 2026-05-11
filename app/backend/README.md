@@ -1,4 +1,4 @@
-# GMAO Ramondin — Backend API
+# GMAO Simply GMAO — Backend API
 
 > Application de Gestion de Maintenance Assistee par Ordinateur pour l'industrie des capsules aluminium.
 > Hebergement 100 % local sur serveur dedie usine (Ubuntu 22.04, Docker).
@@ -178,7 +178,7 @@ sudo usermod -aG docker $USER
 ### 2. Copier les fichiers
 
 ```bash
-mkdir -p /opt/ramondin-gmao && cd /opt/ramondin-gmao
+mkdir -p /opt/simply-gmao-gmao && cd /opt/simply-gmao-gmao
 cp -r /chemin/livraison/backend/* .
 ```
 
@@ -205,7 +205,7 @@ mkdir -p nginx/ssl
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout nginx/ssl/server.key \
   -out nginx/ssl/server.crt \
-  -subj "/C=ES/ST=Alava/L=Saint-Gaudens/O=Ramondin/CN=gmao.ramondin.local"
+  -subj "/C=ES/ST=Alava/L=France/O=Simply GMAO/CN=gmao.simply-gmao.local"
 ```
 
 ### 5. Lancer la stack
@@ -234,12 +234,12 @@ docker-compose exec api npx ts-node prisma/seed.ts
 docker-compose ps
 
 # Healthcheck API
-curl -k https://gmao.ramondin.local/api/health
+curl -k https://gmao.simply-gmao.local/api/health
 
-# Connexion (login = responsable@ramondin.local / password = ramondin2025)
-curl -k -X POST https://gmao.ramondin.local/api/auth/login \
+# Connexion (login = responsable@simply-gmao.local / password = simply-gmao2025)
+curl -k -X POST https://gmao.simply-gmao.local/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"responsable@ramondin.local","password":"ramondin2025"}'
+  -d '{"email":"responsable@simply-gmao.local","password":"simply-gmao2025"}'
 ```
 
 ### 8. Logs et monitoring
@@ -261,13 +261,13 @@ docker stats
 
 | Email | Role | Mot de passe |
 |-------|------|-------------|
-| responsable@ramondin.local | Responsable Maintenance | ramondin2025 |
-| tech1@ramondin.local | Technicien | ramondin2025 |
-| tech2@ramondin.local | Technicien | ramondin2025 |
-| operateur@ramondin.local | Operateur | ramondin2025 |
-| magasinier@ramondin.local | Magasinier | ramondin2025 |
-| hse@ramondin.local | HSE | ramondin2025 |
-| admin@ramondin.local | Administrateur | ramondin2025 |
+| responsable@simply-gmao.local | Responsable Maintenance | simply-gmao2025 |
+| tech1@simply-gmao.local | Technicien | simply-gmao2025 |
+| tech2@simply-gmao.local | Technicien | simply-gmao2025 |
+| operateur@simply-gmao.local | Operateur | simply-gmao2025 |
+| magasinier@simply-gmao.local | Magasinier | simply-gmao2025 |
+| hse@simply-gmao.local | HSE | simply-gmao2025 |
+| admin@simply-gmao.local | Administrateur | simply-gmao2025 |
 
 ---
 
@@ -277,24 +277,24 @@ docker stats
 
 ```bash
 # Ajouter dans crontab (crontab -e)
-0 2 * * * /opt/ramondin-gmao/scripts/backup.sh
+0 2 * * * /opt/simply-gmao-gmao/scripts/backup.sh
 ```
 
 ### Backup manuel
 
 ```bash
 # Dump PostgreSQL
-docker-compose exec -T postgres pg_dump -U gmao ramondin_gmao > backup_$(date +%Y%m%d).sql
+docker-compose exec -T postgres pg_dump -U gmao simply-gmao_gmao > backup_$(date +%Y%m%d).sql
 
 # Sauvegarder les uploads
-tar czf uploads_backup_$(date +%Y%m%d).tar.gz /opt/ramondin-gmao/uploads
+tar czf uploads_backup_$(date +%Y%m%d).tar.gz /opt/simply-gmao-gmao/uploads
 ```
 
 ### Restauration
 
 ```bash
 # Restaurer la base
-cat backup_YYYYMMDD.sql | docker-compose exec -T postgres psql -U gmao -d ramondin_gmao
+cat backup_YYYYMMDD.sql | docker-compose exec -T postgres psql -U gmao -d simply-gmao_gmao
 ```
 
 ---
@@ -346,5 +346,5 @@ docker-compose restart api
 
 ## Licence
 
-Proprietaire — Ramondin S.A.  
+Proprietaire — Simply GMAO S.A.  
 Non autorise a la distribution externe.

@@ -13,6 +13,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
 import { authenticate } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { paginate } from '../utils/pagination';
 
 const router = Router();
 
@@ -32,22 +33,18 @@ router.get(
         where.read = false;
       }
 
-      const skip = (Number(page) - 1) * Number(limit);
-
-      const [items, total, unreadCount] = await Promise.all([
-        prisma.notification.findMany({
-          where,
-          skip,
-          take: Number(limit),
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.notification.count({ where: { userId } }),
-        prisma.notification.count({ where: { userId, read: false } }),
-      ]);
+      const result = await paginate({
+        page: Number(page),
+        limit: Number(limit),
+        model: prisma.notification,
+        where,
+        orderBy: { createdAt: 'desc' },
+      });
 
       res.json({
         success: true,
-        data: { items, total, unreadCount, page: Number(page), limit: Number(limit) },
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);

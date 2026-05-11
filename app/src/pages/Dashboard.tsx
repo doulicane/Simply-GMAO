@@ -5,6 +5,7 @@ import {
   Bell, ClipboardList, CalendarClock, RefreshCw, TrendingUp,
   TrendingDown, Inbox, ScanQrCode, Package, Wrench, Ticket,
   AlertTriangle,
+  FileDown,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -489,9 +490,9 @@ export default function Dashboard() {
     { value: kpi.lowWorkOrders, color: '#6B7280' },
   ];
 
-  const sparkData = [92.1, 93.4, 91.8, 94.2, 93.5, 94.8, 95.1, 94.2];
-  const mttrBars = [3.2, 2.8, 2.5, 3.0, 2.1, 2.4, 2.4];
-  const mtbfLine = [140, 145, 142, 150, 148, 152, 156];
+  const sparkData: number[] = [];
+  const mttrBars: number[] = [];
+  const mtbfLine: number[] = [];
 
   const containerVariants = {
     hidden: {},
@@ -510,9 +511,29 @@ export default function Dashboard() {
           <h1 className="text-xl font-bold text-text-primary">DASHBOARD</h1>
           <p className="text-xs text-text-secondary mt-0.5">Vue d'ensemble de la maintenance</p>
         </div>
-        <button className="p-2 rounded-md hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-colors" aria-label="Actualiser">
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`${import.meta.env.VITE_API_URL}/dashboard/monthly-report/pdf?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary h-8 px-3 text-xs flex items-center gap-1.5"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            Rapport mensuel
+          </a>
+          <a
+            href={`${import.meta.env.VITE_API_URL}/atex/compliance/pdf?year=${new Date().getFullYear()}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary h-8 px-3 text-xs flex items-center gap-1.5"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            Conformité ATEX
+          </a>
+          <button className="p-2 rounded-md hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-colors" aria-label="Actualiser">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* ── KPI Row ── */}
@@ -528,13 +549,10 @@ export default function Dashboard() {
             value={availabilityVal}
             unit="%"
             subtitle="Objectif: 95%"
-            trend="+1.3% vs sem. dernière"
-            trendUp
-            trendGood
             borderColor={kpi.availability >= 90 ? '#22C55E' : kpi.availability >= 80 ? '#F59E0B' : '#EF4444'}
             onClick={() => navigate('/equipements')}
           >
-            <MiniSparkline data={sparkData} color="#22C55E" />
+            {sparkData.length > 0 ? <MiniSparkline data={sparkData} color="#22C55E" /> : null}
           </KPICard>
         </motion.div>
 
@@ -543,13 +561,10 @@ export default function Dashboard() {
             title="TEMPS MOYEN DE RÉPARATION"
             value={mttrVal}
             subtitle="Moyenne 30 jours"
-            trend="-0.3h vs mois dernier"
-            trendUp={false}
-            trendGood
             borderColor="#0EA5E9"
             onClick={() => navigate('/bons-de-travail')}
           >
-            <MiniBarChart data={mttrBars} color="#0EA5E9" />
+            {mttrBars.length > 0 ? <MiniBarChart data={mttrBars} color="#0EA5E9" /> : null}
           </KPICard>
         </motion.div>
 
@@ -558,13 +573,10 @@ export default function Dashboard() {
             title="TEMPS MOYEN ENTRE PANNES"
             value={mtbfVal}
             subtitle="Moyenne 30 jours"
-            trend="+12h vs mois dernier"
-            trendUp
-            trendGood
             borderColor="#0EA5E9"
             onClick={() => navigate('/equipements')}
           >
-            <MiniSparkline data={mtbfLine} color="#0EA5E9" />
+            {mtbfLine.length > 0 ? <MiniSparkline data={mtbfLine} color="#0EA5E9" /> : null}
           </KPICard>
         </motion.div>
 

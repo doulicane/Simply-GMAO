@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, ScanQrCode, List, LayoutGrid, GitBranch, X, ChevronDown, Filter, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ViewMode, EquipmentFilters, LevelFilter, CriticalityFilter, StatusFilter } from './types';
+import type { Criticality } from '@/types';
 import { CRITICALITY_LABELS, STATUS_LABELS } from './types';
 
 interface FilterBarProps {

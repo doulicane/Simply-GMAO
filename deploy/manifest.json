@@ -1,0 +1,23 @@
+{
+  "name": "GMAO Simply GMAO",
+  "short_name": "GMAO",
+  "description": "Gestion de Maintenance Assistee par Ordinateur — Simply GMAO",
+  "theme_color": "#B71C1C",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

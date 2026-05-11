@@ -4,7 +4,6 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
   Clock, MapPin, User, Wrench, AlertTriangle,
 } from 'lucide-react';
-import { useDataStore } from '@/stores/dataStore';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import type { WorkOrder, PreventivePlan } from '@/types';
@@ -60,11 +59,11 @@ function isToday(date: Date): boolean {
 function getEventColor(type: CalendarEvent['type']): { bg: string; border: string; text: string; hover: string } {
   switch (type) {
     case 'wo-corrective':
-      return { bg: 'bg-[#C44A5C]/20', border: 'border-[#C44A5C]', text: 'text-[#F87171]', hover: 'hover:bg-[#C44A5C]/30' };
+      return { bg: 'bg-[#E63946]/20', border: 'border-[#E63946]', text: 'text-[#FF4D5A]', hover: 'hover:bg-[#E63946]/30' };
     case 'wo-preventive':
       return { bg: 'bg-[#3B82F6]/20', border: 'border-[#3B82F6]', text: 'text-[#93C5FD]', hover: 'hover:bg-[#3B82F6]/30' };
     case 'wo-safety':
-      return { bg: 'bg-[#D4964A]/20', border: 'border-[#D4964A]', text: 'text-[#FCD34D]', hover: 'hover:bg-[#D4964A]/30' };
+      return { bg: 'bg-[#FF8500]/20', border: 'border-[#FF8500]', text: 'text-[#FFD60A]', hover: 'hover:bg-[#FF8500]/30' };
     case 'pm':
       return { bg: 'bg-[#10B981]/20', border: 'border-[#10B981]', text: 'text-[#6EE7B7]', hover: 'hover:bg-[#10B981]/30' };
   }
@@ -78,7 +77,8 @@ export default function Planification() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const { workOrders, preventivePlans } = useDataStore();
+  const workOrders: any[] = [];
+  const preventivePlans: any[] = [];
 
   /* ── Build events ── */
   const events = useMemo<CalendarEvent[]>(() => {
@@ -149,35 +149,35 @@ export default function Planification() {
   return (
     <div className="h-[calc(100dvh-64px)] flex flex-col">
       {/* ═══ HEADER ═══ */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-ramondin-green/10 bg-bg-elevated">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-simply-gmao-green/10 bg-bg-elevated">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            <button onClick={goPrev} className="p-1.5 rounded hover:bg-ramondin-green/10 transition-colors">
-              <ChevronLeft className="w-5 h-5 text-ramondin-text" />
+            <button onClick={goPrev} className="p-1.5 rounded hover:bg-simply-gmao-green/10 transition-colors">
+              <ChevronLeft className="w-5 h-5 text-simply-gmao-text" />
             </button>
-            <button onClick={goNext} className="p-1.5 rounded hover:bg-ramondin-green/10 transition-colors">
-              <ChevronRight className="w-5 h-5 text-ramondin-text" />
+            <button onClick={goNext} className="p-1.5 rounded hover:bg-simply-gmao-green/10 transition-colors">
+              <ChevronRight className="w-5 h-5 text-simply-gmao-text" />
             </button>
           </div>
           <button
             onClick={goToday}
-            className="h-8 px-3 border border-ramondin-green/20 rounded text-sm font-medium text-ramondin-text hover:bg-ramondin-green/5 transition-colors"
+            className="h-8 px-3 border border-simply-gmao-green/20 rounded text-sm font-medium text-simply-gmao-text hover:bg-simply-gmao-green/5 transition-colors"
           >
             Aujourd'hui
           </button>
-          <h1 className="text-lg font-semibold text-ramondin-text min-w-[200px]">
+          <h1 className="text-lg font-semibold text-simply-gmao-text min-w-[200px]">
             {viewMode === 'week'
               ? `${weekDays[0].getDate()} ${MOIS[weekDays[0].getMonth()]} — ${weekDays[6].getDate()} ${MOIS[weekDays[6].getMonth()]} ${weekDays[6].getFullYear()}`
               : `${MOIS[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
           </h1>
         </div>
 
-        <div className="flex items-center gap-1 bg-ramondin-green/10 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-simply-gmao-green/10 rounded-lg p-0.5">
           <button
             onClick={() => setViewMode('week')}
             className={cn(
               'h-7 px-3 rounded text-sm font-medium transition-colors',
-              viewMode === 'week' ? 'bg-ramondin-green text-white shadow-sm' : 'text-ramondin-text-light hover:text-ramondin-text'
+              viewMode === 'week' ? 'bg-simply-gmao-green text-white shadow-sm' : 'text-simply-gmao-text-light hover:text-simply-gmao-text'
             )}
           >
             Semaine
@@ -186,7 +186,7 @@ export default function Planification() {
             onClick={() => setViewMode('month')}
             className={cn(
               'h-7 px-3 rounded text-sm font-medium transition-colors',
-              viewMode === 'month' ? 'bg-ramondin-green text-white shadow-sm' : 'text-ramondin-text-light hover:text-ramondin-text'
+              viewMode === 'month' ? 'bg-simply-gmao-green text-white shadow-sm' : 'text-simply-gmao-text-light hover:text-simply-gmao-text'
             )}
           >
             Mois
@@ -195,10 +195,10 @@ export default function Planification() {
       </div>
 
       {/* ═══ LEGEND ═══ */}
-      <div className="flex items-center gap-4 px-6 py-2 bg-bg-elevated border-b border-ramondin-green/10 text-xs text-text-secondary">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#C44A5C]/30 border border-[#C44A5C]" />BT Correctif</span>
+      <div className="flex items-center gap-4 px-6 py-2 bg-bg-elevated border-b border-simply-gmao-green/10 text-xs text-text-secondary">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#E63946]/30 border border-[#E63946]" />BT Correctif</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#3B82F6]/30 border border-[#3B82F6]" />BT Préventif</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#D4964A]/30 border border-[#D4964A]" />BT Sécurité</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#FF8500]/30 border border-[#FF8500]" />BT Sécurité</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#10B981]/30 border border-[#10B981]" />Maint. Préventive</span>
       </div>
 
@@ -248,8 +248,8 @@ function WeekView({
   return (
     <div className="flex-1 overflow-auto flex">
       {/* Axe des heures */}
-      <div className="w-14 flex-shrink-0 bg-bg-elevated border-r border-ramondin-green/10">
-        <div className="h-14 border-b border-ramondin-green/10" />
+      <div className="w-14 flex-shrink-0 bg-bg-elevated border-r border-simply-gmao-green/10">
+        <div className="h-14 border-b border-simply-gmao-green/10" />
         {HEURES.map((h) => (
           <div key={h} className="h-16 relative">
             <span className="absolute -top-2 right-2 text-[11px] text-text-secondary font-medium">
@@ -266,11 +266,11 @@ function WeekView({
           const today = isToday(day);
 
           return (
-            <div key={idx} className={cn('flex-1 min-w-[140px] border-r border-ramondin-green/10 relative', today && 'bg-ramondin-gold/5')}>
+            <div key={idx} className={cn('flex-1 min-w-[140px] border-r border-simply-gmao-green/10 relative', today && 'bg-simply-gmao-gold/5')}>
               {/* Header jour */}
-              <div className={cn('h-14 flex flex-col items-center justify-center border-b border-ramondin-green/10', today && 'bg-ramondin-gold text-ramondin-dark')}>
+              <div className={cn('h-14 flex flex-col items-center justify-center border-b border-simply-gmao-green/10', today && 'bg-simply-gmao-gold text-simply-gmao-dark')}>
                 <span className="text-[11px] font-medium uppercase">{JOURS_SHORT[idx]}</span>
-                <span className={cn('text-xl font-semibold', today ? 'text-ramondin-dark' : 'text-text-primary')}>
+                <span className={cn('text-xl font-semibold', today ? 'text-simply-gmao-dark' : 'text-text-primary')}>
                   {day.getDate()}
                 </span>
               </div>
@@ -278,16 +278,16 @@ function WeekView({
               {/* Grille horaire */}
               <div className="relative">
                 {HEURES.map((h) => (
-                  <div key={h} className="h-16 border-b border-ramondin-green/10" />
+                  <div key={h} className="h-16 border-b border-simply-gmao-green/10" />
                 ))}
 
                 {/* Ligne "maintenant" */}
                 {today && currentHourPercent >= 0 && currentHourPercent <= 100 && (
                   <div
-                    className="absolute left-0 right-0 border-t-2 border-ramondin-danger z-10 pointer-events-none"
+                    className="absolute left-0 right-0 border-t-2 border-simply-gmao-danger z-10 pointer-events-none"
                     style={{ top: `${currentHourPercent}%` }}
                   >
-                    <div className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-ramondin-danger" />
+                    <div className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-simply-gmao-danger" />
                   </div>
                 )}
 
@@ -359,9 +359,9 @@ function MonthView({
 
   return (
     <div className="flex-1 overflow-auto p-4">
-      <div className="grid grid-cols-7 gap-px bg-ramondin-green/10 rounded-lg overflow-hidden border border-ramondin-green/10">
+      <div className="grid grid-cols-7 gap-px bg-simply-gmao-green/10 rounded-lg overflow-hidden border border-simply-gmao-green/10">
         {JOURS_SHORT.map((j) => (
-          <div key={j} className="bg-white text-center text-xs font-medium text-ramondin-text-light py-2">{j}</div>
+          <div key={j} className="bg-white text-center text-xs font-medium text-simply-gmao-text-light py-2">{j}</div>
         ))}
         {days.map((day, idx) => {
           const dayEvents = events.filter((e) => isSameDay(e.date, day));
@@ -374,10 +374,10 @@ function MonthView({
               className={cn(
                 'bg-bg-elevated min-h-[100px] p-1.5 transition-colors',
                 !isCurrentMonth && 'opacity-40',
-                today && 'bg-ramondin-gold/5'
+                today && 'bg-simply-gmao-gold/5'
               )}
             >
-              <span className={cn('text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full', today ? 'bg-ramondin-gold text-ramondin-dark' : 'text-text-primary')}>
+              <span className={cn('text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full', today ? 'bg-simply-gmao-gold text-simply-gmao-dark' : 'text-text-primary')}>
                 {day.getDate()}
               </span>
               <div className="mt-1 space-y-0.5">
@@ -394,7 +394,7 @@ function MonthView({
                   );
                 })}
                 {dayEvents.length > 4 && (
-                  <span className="text-[10px] text-ramondin-text-light pl-1">+{dayEvents.length - 4} de plus</span>
+                  <span className="text-[10px] text-simply-gmao-text-light pl-1">+{dayEvents.length - 4} de plus</span>
                 )}
               </div>
             </div>
@@ -427,7 +427,7 @@ function EventDetailModal({ event, onClose }: { event: CalendarEvent; onClose: (
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-bg-elevated rounded-xl shadow-2xl z-50 overflow-hidden border border-ramondin-green/20"
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-bg-elevated rounded-xl shadow-2xl z-50 overflow-hidden border border-simply-gmao-green/20"
       >
         {/* Header coloré */}
         <div className={cn('h-2', colors.border.replace('border-', 'bg-'))} />
@@ -500,7 +500,7 @@ function EventDetailModal({ event, onClose }: { event: CalendarEvent; onClose: (
         <div className="px-5 py-3 bg-white/5 flex justify-end border-t border-white/10">
           <button
             onClick={onClose}
-            className="h-9 px-4 bg-ramondin-gold text-ramondin-dark rounded-lg text-sm font-medium hover:bg-ramondin-gold/80 transition-colors"
+            className="h-9 px-4 bg-simply-gmao-gold text-simply-gmao-dark rounded-lg text-sm font-medium hover:bg-simply-gmao-gold/80 transition-colors"
           >
             Fermer
           </button>

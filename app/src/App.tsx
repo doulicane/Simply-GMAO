@@ -1,16 +1,23 @@
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PageSkeleton } from '@/components/feedback/PageSkeleton';
 import { useAuthStore } from '@/stores/authStore';
-import Dashboard from '@/pages/Dashboard';
-import Login from '@/pages/Login';
-import TicketsPage from '@/pages/Tickets';
-import PortailOperateur from '@/pages/PortailOperateur';
-import Equipements from '@/pages/Equipements';
-import BonsDeTravail from '@/pages/BonsDeTravail';
 
-import Stocks from '@/pages/Stocks';
-import EspaceMagasinier from '@/pages/EspaceMagasinier';
-import Planification from '@/pages/Planification';
+// Lazy loading de toutes les pages
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const Login = lazy(() => import('@/pages/Login'));
+const TicketsPage = lazy(() => import('@/pages/Tickets'));
+const PortailOperateur = lazy(() => import('@/pages/PortailOperateur'));
+const Equipements = lazy(() => import('@/pages/Equipements'));
+const BonsDeTravail = lazy(() => import('@/pages/BonsDeTravail'));
+const Stocks = lazy(() => import('@/pages/Stocks'));
+const EspaceMagasinier = lazy(() => import('@/pages/EspaceMagasinier'));
+const Planification = lazy(() => import('@/pages/Planification'));
+const MaintenancePreventive = lazy(() => import('@/pages/MaintenancePreventive'));
+const ImportData = lazy(() => import('@/pages/ImportData'));
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
   return isAuthenticated ? <Layout>{children}</Layout> : <Navigate to="/login" replace />;
@@ -35,19 +42,39 @@ function HomeRedirect() {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === 'operateur') return <Navigate to="/portail-operateur" replace />;
   if (user?.role === 'magasinier') return <Navigate to="/espace-magasinier" replace />;
-  return <Layout><Dashboard /></Layout>;
+  return (
+    <Layout>
+      <Dashboard />
+    </Layout>
+  );
+}
+
+function AuthBootstrap({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user, fetchMe } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      fetchMe();
+    }
+  }, [isAuthenticated, user, fetchMe]);
+
+  return <>{children}</>;
 }
 
 export default function App() {
   return (
-    <Routes>
+    <AuthBootstrap>
+    <ErrorBoundary>
+      <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<HomeRedirect />} />
         <Route
           path="/equipements"
           element={
             <RequireRole allowedRoles={['responsable', 'technicien', 'magasinier', 'hse']}>
-              <Equipements />
+              <Suspense fallback={<PageSkeleton variant="table" />}>
+                <Equipements />
+              </Suspense>
             </RequireRole>
           }
         />
@@ -55,7 +82,9 @@ export default function App() {
           path="/bons-de-travail"
           element={
             <RequireRole allowedRoles={['responsable', 'magasinier', 'hse']}>
-              <BonsDeTravail />
+              <Suspense fallback={<PageSkeleton variant="table" />}>
+                <BonsDeTravail />
+              </Suspense>
             </RequireRole>
           }
         />
@@ -63,7 +92,9 @@ export default function App() {
           path="/stocks"
           element={
             <RequireRole allowedRoles={['responsable', 'technicien', 'magasinier', 'hse']}>
-              <Stocks />
+              <Suspense fallback={<PageSkeleton variant="table" />}>
+                <Stocks />
+              </Suspense>
             </RequireRole>
           }
         />
@@ -71,7 +102,9 @@ export default function App() {
           path="/espace-magasinier"
           element={
             <RequireRole allowedRoles={['magasinier']}>
-              <EspaceMagasinier />
+              <Suspense fallback={<PageSkeleton variant="dashboard" />}>
+                <EspaceMagasinier />
+              </Suspense>
             </RequireRole>
           }
         />
@@ -79,7 +112,9 @@ export default function App() {
           path="/portail-operateur"
           element={
             <RequireOperateur>
-              <PortailOperateur />
+              <Suspense fallback={<PageSkeleton variant="form" />}>
+                <PortailOperateur />
+              </Suspense>
             </RequireOperateur>
           }
         />
@@ -87,7 +122,9 @@ export default function App() {
           path="/tickets"
           element={
             <RequireRole allowedRoles={['responsable']}>
-              <TicketsPage />
+              <Suspense fallback={<PageSkeleton variant="table" />}>
+                <TicketsPage />
+              </Suspense>
             </RequireRole>
           }
         />
@@ -95,10 +132,34 @@ export default function App() {
           path="/planification"
           element={
             <RequireRole allowedRoles={['responsable']}>
-              <Planification />
+              <Suspense fallback={<PageSkeleton variant="dashboard" />}>
+                <Planification />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/maintenance-preventive"
+          element={
+            <RequireRole allowedRoles={['responsable', 'technicien', 'hse']}>
+              <Suspense fallback={<PageSkeleton variant="table" />}>
+                <MaintenancePreventive />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/import"
+          element={
+            <RequireRole allowedRoles={['responsable', 'admin']}>
+              <Suspense fallback={<PageSkeleton variant="table" />}>
+                <ImportData />
+              </Suspense>
             </RequireRole>
           }
         />
       </Routes>
+    </ErrorBoundary>
+    </AuthBootstrap>
   );
 }

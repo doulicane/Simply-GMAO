@@ -1,27 +1,36 @@
 /**
  * =============================================================================
- * Point d'entree — Application Express GMAO Ramondin
+ * Point d'entree — Application Express GMAO Simply GMAO
  * =============================================================================
  * Configuration :
- *   - Express avec middlewares de securite (Helmet, CORS, Rate Limiting)
+ *   - Validation des variables d'environnement (env.ts — erreur fatale si invalide)
+ *   - Express avec middlewares de securite (Helmet, CORS strict, Rate Limiting)
  *   - Parsing JSON
  *   - Routes API
  *   - Gestion des erreurs globale
- *   - Healthcheck
+ *   - Healthcheck approfondi (DB, Redis, disque)
  *   - Graceful shutdown
  * =============================================================================
  */
 
 import 'dotenv/config';
 import express, { Request, Response, Application } from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs';
 
-import { disconnectDatabase } from './config/database';
-import { disconnectRedis } from './config/redis';
+// DOIT etre importe en premier pour valider l'environnement
+import { env } from './config/env';
+import { prisma, disconnectDatabase } from './config/database';
+import { redisClient, disconnectRedis } from './config/redis';
 import { logger } from './utils/logger';
 import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler';
+import { runWithContext } from './utils/asyncContext';
+import { swaggerSpec } from './config/swagger';
+import swaggerUi from 'swagger-ui-express';
+import { initSocket } from './socket';
 
 // Routes
 import authRoutes from './routes/auth';
@@ -35,16 +44,30 @@ import ticketRoutes from './routes/tickets';
 import notificationRoutes from './routes/notifications';
 import auditLogRoutes from './routes/auditLogs';
 import documentRoutes from './routes/documents';
+import planningRoutes from './routes/planning';
+import checklistRoutes from './routes/checklistTemplates';
+import atexRoutes from './routes/atex';
+import sousEnsembleRoutes from './routes/sousEnsembles';
+import compteurReleveRoutes from './routes/compteurReleves';
+import importRoutes from './routes/import';
+import scadaRoutes from './routes/scada';
+import preferencesRoutes from './routes/preferences';
 
 // Jobs
 import { schedulePreventiveJob } from './jobs/preventiveGenerator';
+import { scheduleStockAlertJob } from './jobs/stockAlert';
+import { schedulePreventiveAlertJob } from './jobs/preventiveAlert';
+import { scheduleBackupJob } from './jobs/backup';
+import { scheduleMonthlyReportJob } from './jobs/monthlyReport';
+import { schedulePreventiveReminderJob } from './jobs/preventiveReminder';
+import { scheduleReservationCleanupJob } from './jobs/reservationCleanup';
 
 // ---------------------------------------------------------------------------
 // Configuration Express
 // ---------------------------------------------------------------------------
 const app: Application = express();
-const PORT = Number(process.env.PORT ?? 3000);
-const NODE_ENV = process.env.NODE_ENV ?? 'development';
+const PORT = env.PORT;
+const NODE_ENV = env.NODE_ENV;
 
 // ---------------------------------------------------------------------------
 // Middlewares de securite
@@ -55,26 +78,27 @@ app.use(helmet({
   contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
 }));
 
-// CORS
-const corsOrigin = process.env.CORS_ORIGIN ?? '*';
+// CORS strict — jamais '*' meme en dev
+const corsOrigin = env.CORS_ORIGIN;
+const allowedOrigins = corsOrigin.split(',').map((o) => o.trim());
 app.use(cors({
-  origin: corsOrigin === '*' ? true : corsOrigin.split(','),
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-demo-role'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
-// Rate Limiting
+// Rate Limiting global
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: NODE_ENV === 'production' ? 500 : 10000, // 500 requetes par IP en prod
+  max: env.RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Trop de requetes, veuillez reessayer plus tard.', code: 'RATE_LIMIT' },
 });
 app.use(limiter);
 
-// Stricte limit pour login
+// Stricte limit pour login + refresh
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -82,6 +106,23 @@ const authLimiter = rateLimit({
   message: { success: false, error: 'Trop de tentatives de connexion.', code: 'AUTH_RATE_LIMIT' },
 });
 app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/refresh', authLimiter);
+
+// Rate limiter specifique upload (10 par heure par IP)
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 10,
+  message: { success: false, error: 'Quota d\'upload atteint (10 fichiers/heure).', code: 'UPLOAD_RATE_LIMIT' },
+});
+app.use('/api/upload', uploadLimiter);
+
+// Rate limiter specifique export PDF (5 par heure par IP)
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 5,
+  message: { success: false, error: 'Quota d\'export atteint (5 exports/heure).', code: 'EXPORT_RATE_LIMIT' },
+});
+app.use('/api/reports', exportLimiter);
 
 // ---------------------------------------------------------------------------
 // Parsing JSON
@@ -90,22 +131,77 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ---------------------------------------------------------------------------
-// Servir les fichiers uploads statiques
+// Contexte de requete pour AsyncLocalStorage (audit trail)
 // ---------------------------------------------------------------------------
-app.use('/uploads', express.static(process.env.UPLOAD_DIR ?? './uploads'));
+app.use((req, _res, next) => {
+  runWithContext(
+    {
+      userId: (req as any).user?.id,
+      ipAddress: req.ip ?? req.socket.remoteAddress ?? undefined,
+    },
+    () => next()
+  );
+});
 
 // ---------------------------------------------------------------------------
-// Healthcheck
+// Servir les fichiers uploads statiques
 // ---------------------------------------------------------------------------
-app.get('/api/health', (_req: Request, res: Response): void => {
-  res.json({
-    success: true,
-    data: {
-      status: 'UP',
-      env: NODE_ENV,
-      timestamp: new Date().toISOString(),
-    },
-  });
+app.use('/uploads', express.static(env.UPLOAD_DIR));
+
+// ---------------------------------------------------------------------------
+// Swagger UI — Documentation API
+// ---------------------------------------------------------------------------
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'GMAO Simply GMAO API Docs',
+}));
+
+// ---------------------------------------------------------------------------
+// Healthcheck approfondi
+// ---------------------------------------------------------------------------
+app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  const checks: Record<string, { status: 'UP' | 'DOWN'; responseTimeMs?: number; freeSpaceGb?: number; error?: string }> = {};
+  let overallStatus: 'UP' | 'DOWN' = 'UP';
+
+  // Check PostgreSQL
+  try {
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = { status: 'UP', responseTimeMs: Date.now() - dbStart };
+  } catch (err: any) {
+    checks.database = { status: 'DOWN', error: err.message };
+    overallStatus = 'DOWN';
+  }
+
+  // Check Redis
+  try {
+    const redisStart = Date.now();
+    await redisClient.ping();
+    checks.redis = { status: 'UP', responseTimeMs: Date.now() - redisStart };
+  } catch (err: any) {
+    checks.redis = { status: 'DOWN', error: err.message };
+    overallStatus = 'DOWN';
+  }
+
+  // Check disque uploads
+  try {
+    const stats = fs.statfsSync(env.UPLOAD_DIR);
+    const freeGb = (stats.bavail * stats.bsize) / (1024 ** 3);
+    checks.storage = { status: 'UP', freeSpaceGb: Math.round(freeGb) };
+  } catch (err: any) {
+    checks.storage = { status: 'DOWN', error: err.message };
+    overallStatus = 'DOWN';
+  }
+
+  const responseBody = {
+    status: overallStatus,
+    timestamp,
+    version: '1.0.0',
+    services: checks,
+    uptime: Math.floor(process.uptime()),
+  };
+
+  res.status(overallStatus === 'DOWN' ? 503 : 200).json(responseBody);
 });
 
 // ---------------------------------------------------------------------------
@@ -122,6 +218,14 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/planning', planningRoutes);
+app.use('/api/checklist-templates', checklistRoutes);
+app.use('/api/work-orders', atexRoutes);
+app.use('/api/sous-ensembles', sousEnsembleRoutes);
+app.use('/api/compteur-releves', compteurReleveRoutes);
+app.use('/api/import', importRoutes);
+app.use('/api/v1', scadaRoutes);
+app.use('/api/preferences', preferencesRoutes);
 
 // ---------------------------------------------------------------------------
 // Route racine
@@ -129,7 +233,7 @@ app.use('/api/documents', documentRoutes);
 app.get('/', (_req: Request, res: Response): void => {
   res.json({
     success: true,
-    message: 'GMAO Ramondin API v1.0.0',
+    message: 'GMAO Simply GMAO API v1.0.0',
     documentation: '/api/health',
   });
 });
@@ -141,12 +245,15 @@ app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 // ---------------------------------------------------------------------------
-// Demarrage du serveur
+// Demarrage du serveur HTTP + WebSocket
 // ---------------------------------------------------------------------------
-const server = app.listen(PORT, '0.0.0.0', async () => {
+const httpServer = createServer(app);
+initSocket(httpServer);
+
+const server = httpServer.listen(PORT, '0.0.0.0', async () => {
   console.log(`
 =============================================================
-  GMAO Ramondin API
+  GMAO Simply GMAO API
 =============================================================
   Environnement : ${NODE_ENV}
   Port          : ${PORT}
@@ -154,12 +261,34 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
 =============================================================
   `);
 
-  // Lancer le scheduler des jobs preventifs (sauf en test)
+  // Lancer les schedulers de jobs (sauf en test)
   if (NODE_ENV !== 'test') {
     try {
       await schedulePreventiveJob();
     } catch (err: any) {
       logger.error('Erreur demarrage scheduler preventif :', err.message);
+    }
+    try {
+      await scheduleStockAlertJob();
+    } catch (err: any) {
+      logger.error('Erreur demarrage scheduler alertes stock :', err.message);
+    }
+    try {
+      await schedulePreventiveAlertJob();
+    } catch (err: any) {
+      logger.error('Erreur demarrage scheduler alertes preventives :', err.message);
+    }
+    try {
+      await scheduleBackupJob();
+    await scheduleMonthlyReportJob();
+    await schedulePreventiveReminderJob();
+    } catch (err: any) {
+      logger.error('Erreur demarrage scheduler backup :', err.message);
+    }
+    try {
+      await scheduleReservationCleanupJob();
+    } catch (err: any) {
+      logger.error('Erreur demarrage scheduler reservation cleanup :', err.message);
     }
   }
 });

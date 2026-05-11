@@ -4,6 +4,7 @@
  * =============================================================================
  * Endpoints :
  *   POST /api/auth/login     — Authentification (email + password)
+ *   POST /api/auth/logout    — Deconnexion (blacklist du refresh token)
  *   POST /api/auth/refresh   — Rafraichissement du access token
  *   GET  /api/auth/me        — Profil de l'utilisateur connecte
  * =============================================================================
@@ -18,10 +19,18 @@ import {
   generateRefreshToken,
   verifyToken,
   authenticate,
+  storeRefreshToken,
+  isRefreshTokenBlacklisted,
+  blacklistRefreshToken,
 } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import {
+  progressiveLockout,
+  markLoginFailed,
+  markLoginSuccess,
+} from '../middleware/lockout';
 
 const router = Router();
 
@@ -37,11 +46,16 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token requis'),
 });
 
+const logoutSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token requis'),
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/auth/login
 // ---------------------------------------------------------------------------
 router.post(
   '/login',
+  progressiveLockout(),
   validate(loginSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -53,17 +67,22 @@ router.post(
       });
 
       if (!user || !user.active) {
+        await markLoginFailed(req);
         throw new AppError('Email ou mot de passe incorrect', 401);
       }
 
       // Verification du mot de passe
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
+        await markLoginFailed(req);
         logger.warn(`Tentative de connexion echouee : ${email}`);
         throw new AppError('Email ou mot de passe incorrect', 401);
       }
 
-      // Generation des tokens
+      // Reinitialiser les tentatives echouees
+      await markLoginSuccess(req);
+
+      // Generation des tokens avec JTI
       const tokenPayload = {
         userId: user.id,
         email: user.email,
@@ -72,8 +91,11 @@ router.post(
         lastName: user.lastName,
       };
 
-      const accessToken = generateAccessToken(tokenPayload);
-      const refreshToken = generateRefreshToken(tokenPayload);
+      const access = generateAccessToken(tokenPayload);
+      const refresh = generateRefreshToken(tokenPayload);
+
+      // Stockage du refresh token dans Redis (TTL = 7 jours gere par Redis)
+      await storeRefreshToken(user.id, refresh.jti);
 
       logger.info(`Connexion reussie : ${user.email} (${user.role})`);
 
@@ -87,9 +109,41 @@ router.post(
             lastName: user.lastName,
             role: user.role,
           },
-          accessToken,
-          refreshToken,
+          accessToken: access.token,
+          refreshToken: refresh.token,
         },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/logout
+// ---------------------------------------------------------------------------
+router.post(
+  '/logout',
+  validate(logoutSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { refreshToken } = req.body;
+
+      try {
+        const decoded = verifyToken(refreshToken);
+        if (decoded.type === 'refresh') {
+          // Blacklist le refresh token dans Redis
+          await blacklistRefreshToken(decoded.userId, decoded.jti);
+          logger.info(`Deconnexion : refresh token blackliste pour ${decoded.userId}`);
+        }
+      } catch {
+        // Token invalide ou expire : on ignore, la deconnexion se fait quand meme cote client
+        logger.warn('Deconnexion avec refresh token invalide');
+      }
+
+      res.json({
+        success: true,
+        message: 'Deconnexion reussie',
       });
     } catch (err) {
       next(err);
@@ -114,6 +168,12 @@ router.post(
         throw new AppError('Token de rafraichissement invalide', 401);
       }
 
+      // Verification que le refresh token n'est pas blackliste
+      const blacklisted = await isRefreshTokenBlacklisted(decoded.userId, decoded.jti);
+      if (blacklisted) {
+        throw new AppError('Token de rafraichissement invalide ou revoque', 401);
+      }
+
       // Verification que l'utilisateur existe toujours
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId, active: true },
@@ -132,12 +192,12 @@ router.post(
         lastName: user.lastName,
       };
 
-      const newAccessToken = generateAccessToken(tokenPayload);
+      const newAccess = generateAccessToken(tokenPayload);
 
       res.json({
         success: true,
         data: {
-          accessToken: newAccessToken,
+          accessToken: newAccess.token,
         },
       });
     } catch (err) {

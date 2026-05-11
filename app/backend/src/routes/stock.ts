@@ -21,6 +21,8 @@ import { authenticate, authorize } from '../middleware/auth';
 import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { paginate } from '../utils/pagination';
+import QRCode from 'qrcode';
 
 const router = Router();
 
@@ -69,7 +71,7 @@ router.get(
     try {
       const { page, limit, sortBy, order, famille, search, lowStock } = req.query as unknown as z.infer<typeof stockItemQuerySchema>;
 
-      const where: any = { active: true };
+      const where: any = { active: true, deletedAt: null };
       if (famille) where.famille = famille;
       if (search) {
         where.OR = [
@@ -82,23 +84,20 @@ router.get(
         where.quantite = { lte: prisma.stockItem.fields.stockMinimum };
       }
 
-      const skip = (page - 1) * limit;
       const orderBy: any = sortBy ? { [sortBy]: order } : { name: 'asc' };
 
-      const [items, total] = await Promise.all([
-        prisma.stockItem.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy,
-        }),
-        prisma.stockItem.count({ where }),
-      ]);
+      const result = await paginate({
+        page,
+        limit,
+        model: prisma.stockItem,
+        where,
+        orderBy,
+      });
 
       res.json({
         success: true,
-        data: items,
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);
@@ -159,74 +158,6 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
-// PUT /api/stock-items/:id
-// ---------------------------------------------------------------------------
-router.put(
-  '/:id',
-  authenticate,
-  authorize(Role.ADMIN, Role.RESPONSABLE, Role.MAGASINIER),
-  validateRequest({ params: uuidParamSchema, body: updateStockItemSchema }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const data = req.body;
-
-      const existing = await prisma.stockItem.findUnique({ where: { id } });
-      if (!existing) {
-        throw new AppError('Article introuvable', 404);
-      }
-
-      const item = await prisma.stockItem.update({
-        where: { id },
-        data,
-      });
-
-      logger.info(`Article modifie : ${item.code} par ${req.user!.email}`);
-
-      res.json({ success: true, data: item, message: 'Article modifie' });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-// ---------------------------------------------------------------------------
-// GET /api/stock-items/:id
-// ---------------------------------------------------------------------------
-router.get(
-  '/:id',
-  authenticate,
-  validate(uuidParamSchema, 'params'),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { id } = req.params;
-
-      const item = await prisma.stockItem.findUnique({
-        where: { id },
-        include: {
-          stockMovements: {
-            orderBy: { date: 'desc' },
-            take: 20,
-            include: {
-              utilisateur: { select: { id: true, firstName: true, lastName: true } },
-              workOrder: { select: { id: true, numero: true } },
-            },
-          },
-        },
-      });
-
-      if (!item) {
-        throw new AppError('Article introuvable', 404);
-      }
-
-      res.json({ success: true, data: item });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-// ---------------------------------------------------------------------------
 // GET /api/stock-items/low-stock
 // ---------------------------------------------------------------------------
 router.get(
@@ -237,6 +168,7 @@ router.get(
       const items = await prisma.stockItem.findMany({
         where: {
           active: true,
+          deletedAt: null,
           quantite: { lte: prisma.stockItem.fields.stockMinimum },
         },
         orderBy: { quantite: 'asc' },
@@ -261,7 +193,7 @@ router.post(
     try {
       const { stockItemId, type, quantite, workOrderId, commentaire } = req.body;
 
-      const item = await prisma.stockItem.findUnique({ where: { id: stockItemId } });
+      const item = await prisma.stockItem.findUnique({ where: { id: stockItemId, deletedAt: null } });
       if (!item || !item.active) {
         throw new AppError('Article introuvable ou inactif', 404);
       }
@@ -285,18 +217,19 @@ router.post(
         });
 
         // Mettre a jour la quantite
-        let newQuantite = item.quantite;
+        let newQuantite = Number(item.quantite);
+        const qty = Number(quantite);
         switch (type) {
           case StockMovementType.ENTREE:
           case StockMovementType.RETOUR:
-            newQuantite = newQuantite + quantite;
+            newQuantite = newQuantite + qty;
             break;
           case StockMovementType.SORTIE:
           case StockMovementType.RESERVATION:
-            newQuantite = newQuantite - quantite;
+            newQuantite = newQuantite - qty;
             break;
           case StockMovementType.AJUSTEMENT:
-            newQuantite = quantite; // La quantite devient la valeur passee
+            newQuantite = qty; // La quantite devient la valeur passee
             break;
           case StockMovementType.TRANSFERT:
             // Le transfert est geré comme sortie + entree
@@ -345,28 +278,244 @@ router.get(
         if (dateTo) where.date.lte = new Date(dateTo as string);
       }
 
-      const skip = (page - 1) * limit;
-
-      const [items, total] = await Promise.all([
-        prisma.stockMovement.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { date: 'desc' },
-          include: {
-            stockItem: { select: { id: true, code: true, name: true } },
-            utilisateur: { select: { id: true, firstName: true, lastName: true } },
-            workOrder: { select: { id: true, numero: true } },
-          },
-        }),
-        prisma.stockMovement.count({ where }),
-      ]);
+      const result = await paginate({
+        page,
+        limit,
+        model: prisma.stockMovement,
+        where,
+        orderBy: { date: 'desc' },
+        include: {
+          stockItem: { select: { id: true, code: true, name: true } },
+          utilisateur: { select: { id: true, firstName: true, lastName: true } },
+          workOrder: { select: { id: true, numero: true } },
+        },
+      });
 
       res.json({
         success: true,
-        data: items,
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        data: result.data,
+        pagination: result.pagination,
       });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/stock-items/:id/qrcode — QR code article individuel
+// ---------------------------------------------------------------------------
+router.get(
+  '/:id/qrcode',
+  authenticate,
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const item = await prisma.stockItem.findUnique({
+        where: { id, deletedAt: null },
+        select: { id: true, code: true, name: true },
+      });
+      if (!item) {
+        throw new AppError('Article introuvable', 404);
+      }
+
+      const url = `${req.protocol}://${req.get('host')}/stock-items/${item.id}`;
+      const qrBuffer = await QRCode.toBuffer(url, {
+        type: 'png',
+        width: 300,
+        margin: 2,
+        color: { dark: '#37474F', light: '#FFFFFF' },
+      });
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `inline; filename="qrcode-${item.code}.png"`);
+      res.send(qrBuffer);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/stock-items/dormant — Pieces dormantes (sans mouvement depuis X mois)
+// ---------------------------------------------------------------------------
+router.get(
+  '/dormant',
+  authenticate,
+  validate(paginationQuerySchema, 'query'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { page, limit } = req.query as unknown as z.infer<typeof paginationQuerySchema>;
+      const { months = '12' } = req.query as any;
+      const monthsNum = parseInt(months as string, 10);
+      const since = new Date();
+      since.setMonth(since.getMonth() - monthsNum);
+
+      const result = await paginate({
+        page,
+        limit,
+        model: prisma.stockItem,
+        where: {
+          active: true,
+          deletedAt: null,
+          stockMovements: { none: { date: { gte: since } } },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      res.json({ success: true, data: result.data, pagination: result.pagination });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/stock-items/export — Export Excel stock complet
+// ---------------------------------------------------------------------------
+router.get(
+  '/export',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE, Role.MAGASINIER),
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const items = await prisma.stockItem.findMany({
+        where: { active: true, deletedAt: null },
+        orderBy: { name: 'asc' },
+      });
+
+      const rows = items.map((item) => ({
+        Code: item.code,
+        Nom: item.name,
+        Famille: item.famille,
+        'Sous-famille': item.sousFamille ?? '',
+        Designation: item.designation ?? '',
+        Quantite: Number(item.quantite),
+        Unite: item.unite ?? '',
+        'Stock minimum': Number(item.stockMinimum),
+        'Stock maximum': item.stockMaximum ? Number(item.stockMaximum) : '',
+        Localisation: item.localisation ?? '',
+        Fournisseur: item.fournisseur ?? '',
+        'Prix unitaire': item.prixUnitaire ? Number(item.prixUnitaire) : '',
+      }));
+
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 },
+        { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 12 },
+        { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 12 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+
+      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="export-stock.xlsx"');
+      res.send(buffer);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// PUT /api/stock-items/:id
+// ---------------------------------------------------------------------------
+router.put(
+  '/:id',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE, Role.MAGASINIER),
+  validateRequest({ params: uuidParamSchema, body: updateStockItemSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data = req.body;
+
+      const existing = await prisma.stockItem.findUnique({ where: { id, deletedAt: null } });
+      if (!existing) {
+        throw new AppError('Article introuvable', 404);
+      }
+
+      const item = await prisma.stockItem.update({
+        where: { id },
+        data,
+      });
+
+      logger.info(`Article modifie : ${item.code} par ${req.user!.email}`);
+
+      res.json({ success: true, data: item, message: 'Article modifie' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// DELETE /api/stock-items/:id — Suppression logique (soft delete)
+// ---------------------------------------------------------------------------
+router.delete(
+  '/:id',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE, Role.MAGASINIER),
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const existing = await prisma.stockItem.findUnique({ where: { id, deletedAt: null } });
+      if (!existing) {
+        throw new AppError('Article introuvable', 404);
+      }
+
+      await prisma.stockItem.update({
+        where: { id },
+        data: { deletedAt: new Date(), active: false },
+      });
+
+      logger.info(`Article supprime (soft) : ${existing.code} par ${req.user!.email}`);
+
+      res.json({
+        success: true,
+        message: 'Article supprime avec succes',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/stock-items/:id
+// ---------------------------------------------------------------------------
+router.get(
+  '/:id',
+  authenticate,
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const item = await prisma.stockItem.findUnique({
+        where: { id, deletedAt: null },
+        include: {
+          stockMovements: {
+            orderBy: { date: 'desc' },
+            take: 20,
+            include: {
+              utilisateur: { select: { id: true, firstName: true, lastName: true } },
+              workOrder: { select: { id: true, numero: true } },
+            },
+          },
+        },
+      });
+
+      if (!item) {
+        throw new AppError('Article introuvable', 404);
+      }
+
+      res.json({ success: true, data: item });
     } catch (err) {
       next(err);
     }

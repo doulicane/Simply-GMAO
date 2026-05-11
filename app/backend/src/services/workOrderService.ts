@@ -12,12 +12,14 @@ import {
   WorkOrderType,
   Priority,
   EquipmentStatus,
+  StockMovementType,
 } from '@prisma/client';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import { logAudit } from '../utils/audit';
 import { generateUniqueBTNumber } from '../utils/generators';
+import { paginate } from '../utils/pagination';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +41,12 @@ export interface CompleteWOData {
   photos?: string[];
 }
 
+export interface ConsumePartsData {
+  stockItemId: string;
+  quantite: number;
+  commentaire?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // createWorkOrder
 // ---------------------------------------------------------------------------
@@ -48,7 +56,7 @@ export async function createWorkOrder(
   ipAddress?: string
 ) {
   const equipment = await prisma.equipment.findUnique({
-    where: { id: data.equipmentId },
+    where: { id: data.equipmentId, deletedAt: null },
   });
   if (!equipment) {
     throw new AppError('Equipement introuvable', 404);
@@ -104,7 +112,7 @@ export async function listWorkOrders(filters: any, user: any) {
     search,
   } = filters;
 
-  const where: any = {};
+  const where: any = { deletedAt: null };
   if (status) where.status = status;
   if (type) where.type = type;
   if (priority) where.priority = priority;
@@ -136,28 +144,23 @@ export async function listWorkOrders(filters: any, user: any) {
     where.demandeurId = user.id;
   }
 
-  const skip = (page - 1) * limit;
   const orderBy: any = sortBy ? { [sortBy]: order } : { dateCreation: 'desc' };
 
-  const [items, total] = await Promise.all([
-    prisma.workOrder.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy,
-      include: {
-        equipment: {
-          select: { id: true, code: true, name: true, contactAlimentaire: true },
-        },
-        demandeur: { select: { id: true, firstName: true, lastName: true } },
-        technicien: { select: { id: true, firstName: true, lastName: true } },
-        responsable: { select: { id: true, firstName: true, lastName: true } },
+  return paginate({
+    page,
+    limit,
+    model: prisma.workOrder,
+    where,
+    orderBy,
+    include: {
+      equipment: {
+        select: { id: true, code: true, name: true, contactAlimentaire: true },
       },
-    }),
-    prisma.workOrder.count({ where }),
-  ]);
-
-  return { items, total, page, limit };
+      demandeur: { select: { id: true, firstName: true, lastName: true } },
+      technicien: { select: { id: true, firstName: true, lastName: true } },
+      responsable: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +168,7 @@ export async function listWorkOrders(filters: any, user: any) {
 // ---------------------------------------------------------------------------
 export async function getWorkOrderById(id: string) {
   const workOrder = await prisma.workOrder.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
     include: {
       equipment: {
         include: {
@@ -180,7 +183,7 @@ export async function getWorkOrderById(id: string) {
       validateur: { select: { id: true, firstName: true, lastName: true } },
       stockMovements: {
         include: {
-          stockItem: { select: { id: true, code: true, name: true } },
+          stockItem: { select: { id: true, code: true, name: true, unite: true } },
         },
       },
     },
@@ -197,7 +200,7 @@ export async function getWorkOrderById(id: string) {
 // updateWorkOrder (modification generale)
 // ---------------------------------------------------------------------------
 export async function updateWorkOrder(id: string, data: any, user?: any) {
-  const existing = await prisma.workOrder.findUnique({ where: { id } });
+  const existing = await prisma.workOrder.findUnique({ where: { id, deletedAt: null } });
   if (!existing) {
     throw new AppError('Bon de travail introuvable', 404);
   }
@@ -226,7 +229,7 @@ export async function updateWorkOrderStatus(
   commentaire?: string,
   ipAddress?: string
 ) {
-  const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+  const workOrder = await prisma.workOrder.findUnique({ where: { id, deletedAt: null } });
   if (!workOrder) {
     throw new AppError('Bon de travail introuvable', 404);
   }
@@ -276,13 +279,13 @@ export async function assignWorkOrder(
   datePlanifiee?: Date,
   user?: any
 ) {
-  const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+  const workOrder = await prisma.workOrder.findUnique({ where: { id, deletedAt: null } });
   if (!workOrder) {
     throw new AppError('Bon de travail introuvable', 404);
   }
 
   const tech = await prisma.user.findUnique({
-    where: { id: technicienId, role: Role.TECHNICIEN, active: true },
+    where: { id: technicienId, role: Role.TECHNICIEN, active: true, deletedAt: null },
   });
   if (!tech) {
     throw new AppError('Technicien introuvable ou inactif', 404);
@@ -312,9 +315,9 @@ export async function assignWorkOrder(
 // ---------------------------------------------------------------------------
 // startWorkOrder
 // ---------------------------------------------------------------------------
-export async function startWorkOrder(id: string, user: any, ipAddress?: string) {
+export async function startWorkOrder(id: string, user: any, _ipAddress?: string) {
   const workOrder = await prisma.workOrder.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
     include: { equipment: true },
   });
   if (!workOrder) {
@@ -362,7 +365,7 @@ export async function completeWorkOrder(
   ipAddress?: string
 ) {
   const workOrder = await prisma.workOrder.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
     include: { equipment: true },
   });
   if (!workOrder) {
@@ -410,12 +413,16 @@ export async function completeWorkOrder(
 }
 
 // ---------------------------------------------------------------------------
-// validateWorkOrder
+// validateWorkOrder (cloture)
 // ---------------------------------------------------------------------------
-export async function validateWorkOrder(id: string, user: any, ipAddress?: string) {
+export async function validateWorkOrder(id: string, user: any, _ipAddress?: string) {
   const workOrder = await prisma.workOrder.findUnique({
-    where: { id },
-    include: { equipment: true },
+    where: { id, deletedAt: null },
+    include: {
+      equipment: true,
+      atexIntervention: true,
+      contactAlimentaireIntervention: true,
+    },
   });
   if (!workOrder) {
     throw new AppError('Bon de travail introuvable', 404);
@@ -423,6 +430,25 @@ export async function validateWorkOrder(id: string, user: any, ipAddress?: strin
 
   if (workOrder.status !== WorkOrderStatus.TERMINE) {
     throw new AppError('Le BT doit etre TERMINE pour etre valide', 400);
+  }
+
+  // Validation blocante ATEX
+  if (workOrder.equipment?.zoneAtex && workOrder.equipment.zoneAtex !== 'NON_ATEX') {
+    const atex = workOrder.atexIntervention;
+    if (!atex || !atex.consignationEffectuee || !atex.permisDeFeu || !atex.outillageEx || !atex.nettoyageRealise || !atex.depressionRealise) {
+      throw new AppError('Bloc ATEX incomplet. Toutes les cases doivent etre cochees.', 400);
+    }
+    if (!atex.inspecteurAtexSigneAt) {
+      throw new AppError('Signature ATEX requise avant cloture.', 400);
+    }
+  }
+
+  // Validation blocante Contact Alimentaire
+  if (workOrder.equipment?.contactAlimentaire) {
+    const ca = workOrder.contactAlimentaireIntervention;
+    if (!ca || !ca.nettoyageRealise || !ca.rincageRealise) {
+      throw new AppError('Bloc contact alimentaire incomplet. Nettoyage et rincage requis.', 400);
+    }
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -440,6 +466,7 @@ export async function validateWorkOrder(id: string, user: any, ipAddress?: strin
         where: {
           equipmentId: workOrder.equipment.id,
           status: { in: [WorkOrderStatus.EN_COURS, WorkOrderStatus.PLANIFIE] },
+          deletedAt: null,
         },
       });
 
@@ -456,4 +483,166 @@ export async function validateWorkOrder(id: string, user: any, ipAddress?: strin
 
   logger.info(`BT ${id} valide/cloture par ${user.email}`);
   return updated;
+}
+
+// ---------------------------------------------------------------------------
+// reopenWorkOrder — Rouvrir un BT cloture
+// ---------------------------------------------------------------------------
+export async function reopenWorkOrder(id: string, user: any, reason?: string, _ipAddress?: string) {
+  const workOrder = await prisma.workOrder.findUnique({
+    where: { id, deletedAt: null },
+    include: { equipment: true },
+  });
+  if (!workOrder) {
+    throw new AppError('Bon de travail introuvable', 404);
+  }
+
+  if (workOrder.status !== WorkOrderStatus.CLOTURE) {
+    throw new AppError('Le BT doit etre CLOTURE pour etre rouvert', 400);
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedWO = await tx.workOrder.update({
+      where: { id },
+      data: {
+        status: WorkOrderStatus.EN_COURS,
+        validatedBy: null,
+        validatedAt: null,
+        commentaireCloture: reason ? `Rouvert : ${reason}` : workOrder.commentaireCloture,
+      },
+    });
+
+    if (workOrder.equipment) {
+      await tx.equipment.update({
+        where: { id: workOrder.equipment.id },
+        data: { statut: EquipmentStatus.EN_MAINTENANCE },
+      });
+    }
+
+    return updatedWO;
+  });
+
+  logger.info(`BT ${id} rouvert par ${user.email}. Raison : ${reason ?? 'non specifiee'}`);
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// addPhotosToWorkOrder
+// ---------------------------------------------------------------------------
+export async function addPhotosToWorkOrder(id: string, photoUrls: string[], user?: any) {
+  const workOrder = await prisma.workOrder.findUnique({ where: { id, deletedAt: null } });
+  if (!workOrder) {
+    throw new AppError('Bon de travail introuvable', 404);
+  }
+
+  const currentPhotos = (workOrder.photos as string[]) ?? [];
+  const updatedPhotos = [...currentPhotos, ...photoUrls];
+
+  const updated = await prisma.workOrder.update({
+    where: { id },
+    data: { photos: updatedPhotos },
+    include: {
+      equipment: { select: { id: true, code: true, name: true } },
+    },
+  });
+
+  logger.info(`BT ${id} : ${photoUrls.length} photo(s) ajoutees par ${user?.email}`);
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// consumeParts — Consommer des pieces sur un BT (mouvement de stock SORTIE)
+// ---------------------------------------------------------------------------
+export async function consumePartsOnWorkOrder(
+  id: string,
+  data: ConsumePartsData,
+  user: any
+) {
+  const workOrder = await prisma.workOrder.findUnique({ where: { id, deletedAt: null } });
+  if (!workOrder) {
+    throw new AppError('Bon de travail introuvable', 404);
+  }
+
+  if (workOrder.status !== WorkOrderStatus.EN_COURS && workOrder.status !== WorkOrderStatus.PLANIFIE) {
+    throw new AppError('Le BT doit etre PLANIFIE ou EN_COURS pour consommer des pieces', 400);
+  }
+
+  const item = await prisma.stockItem.findUnique({
+    where: { id: data.stockItemId, deletedAt: null },
+  });
+  if (!item || !item.active) {
+    throw new AppError('Article introuvable ou inactif', 404);
+  }
+
+  if (data.quantite > Number(item.quantite)) {
+    throw new AppError(`Stock insuffisant. Disponible : ${item.quantite}`, 400);
+  }
+
+  const movement = await prisma.$transaction(async (tx) => {
+    const mov = await tx.stockMovement.create({
+      data: {
+        stockItemId: data.stockItemId,
+        type: StockMovementType.SORTIE,
+        quantite: data.quantite,
+        workOrderId: id,
+        commentaire: data.commentaire ?? `Consommation BT ${workOrder.numero}`,
+        utilisateurId: user.id,
+      },
+    });
+
+    await tx.stockItem.update({
+      where: { id: data.stockItemId },
+      data: { quantite: Number(item.quantite) - data.quantite },
+    });
+
+    return mov;
+  });
+
+  logger.info(`BT ${id} : ${data.quantite} x ${item.code} consomme par ${user.email}`);
+  return movement;
+}
+
+// ---------------------------------------------------------------------------
+// deleteWorkOrder (soft delete)
+// ---------------------------------------------------------------------------
+export async function deleteWorkOrder(id: string, user?: any) {
+  const existing = await prisma.workOrder.findUnique({ where: { id, deletedAt: null } });
+  if (!existing) {
+    throw new AppError('Bon de travail introuvable', 404);
+  }
+
+  await prisma.workOrder.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  logger.info(`BT ${id} supprime (soft) par ${user?.email}`);
+  return { message: 'Bon de travail supprime avec succes' };
+}
+
+// ---------------------------------------------------------------------------
+// restoreWorkOrder
+// ---------------------------------------------------------------------------
+export async function restoreWorkOrder(id: string, user?: any) {
+  const existing = await prisma.workOrder.findUnique({ where: { id } });
+  if (!existing) {
+    throw new AppError('Bon de travail introuvable', 404);
+  }
+  if (!existing.deletedAt) {
+    throw new AppError('Le bon de travail n\'est pas supprime', 400);
+  }
+
+  const restored = await prisma.workOrder.update({
+    where: { id },
+    data: { deletedAt: null },
+    include: {
+      equipment: { select: { id: true, code: true, name: true } },
+      demandeur: { select: { id: true, firstName: true, lastName: true } },
+      technicien: { select: { id: true, firstName: true, lastName: true } },
+      responsable: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+
+  logger.info(`BT ${id} restaure par ${user?.email}`);
+  return restored;
 }

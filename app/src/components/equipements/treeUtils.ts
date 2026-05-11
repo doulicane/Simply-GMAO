@@ -26,7 +26,7 @@ function getLineGroup(line: string): string {
 export function buildEquipmentTree(equipment: Equipment[]): TreeNode {
   const siteNode: TreeNode = {
     id: 'site-1',
-    name: 'Saint-Gaudens — Site principal',
+    name: 'Site principal',
     type: 'site',
     children: [],
     expanded: true,

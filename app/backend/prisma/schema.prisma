@@ -34,6 +34,7 @@ enum WorkOrderType {
   PREVENTIF
   CONDITIONNEL
   AMELIORATION
+  SECURITE
 }
 
 enum Priority {
@@ -55,6 +56,13 @@ enum EquipmentStatus {
   EN_ARRET
   EN_MAINTENANCE
   HORS_SERVICE
+}
+
+enum AtexZone {
+  ZONE_20
+  ZONE_21
+  ZONE_22
+  NON_ATEX
 }
 
 enum StockMovementType {
@@ -80,14 +88,15 @@ enum TicketStatus {
 // ============================================================================
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String    @id @default(uuid())
+  email     String    @unique
   password  String
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
   role      Role
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
 
   // Relations — WorkOrder (demandeur, technicien, responsable, validateur)
   workOrdersCreated      WorkOrder[] @relation("WorkOrderDemandeur")
@@ -110,7 +119,27 @@ model User {
   // Relations — Ticket
   ticketsCreated Ticket[] @relation("TicketOperateur")
 
+  // Relations — CompteurReleve
+  compteurReleves CompteurReleve[]
+
+  // Relations — UserPreference
+  preferences UserPreference?
+
   @@map("users")
+}
+
+model UserPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  dashboardLayout Json?  @map("dashboard_layout") // { widgets: [{ type, position, size }] }
+  theme       String   @default("system") // light | dark | system
+  language    String   @default("fr") // fr | es
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }
 
 model Site {
@@ -160,6 +189,9 @@ model Equipment {
   localisation      String?
   ligneId           String?              @map("ligne_id")
   contactAlimentaire Boolean             @default(false) @map("contact_alimentaire")
+  zoneAtex          AtexZone             @default(NON_ATEX) @map("zone_atex")
+  dateDerniereInspectionAtex DateTime?   @map("date_derniere_inspection_atex")
+  dateProchaineInspectionAtex DateTime?  @map("date_prochaine_inspection_atex")
   dateAchat         DateTime?            @map("date_achat")
   numSerie          String?              @map("num_serie")
   constructeur      String?
@@ -169,16 +201,57 @@ model Equipment {
   compteurUnite     String?              @map("compteur_unite")
   qrCode            String?              @unique @map("qr_code")
   createdAt         DateTime             @default(now()) @map("created_at")
+  deletedAt         DateTime?            @map("deleted_at")
 
   // Relations
   ligne Ligne? @relation(fields: [ligneId], references: [id], onDelete: SetNull)
 
-  workOrders     WorkOrder[]
+  workOrders      WorkOrder[]
   preventivePlans PreventivePlan[]
-  documents      Document[]
-  tickets        Ticket[]
+  documents       Document[]
+  tickets         Ticket[]
+  sousEnsembles   SousEnsemble[]
+  compteurReleves CompteurReleve[]
 
+  @@index([code])
+  @@index([statut])
+  @@index([deletedAt])
+  @@index([ligneId])
   @@map("equipments")
+}
+
+model SousEnsemble {
+  id            String    @id @default(uuid())
+  equipmentId   String    @map("equipment_id")
+  code          String
+  name          String
+  description   String?
+  statut        String    @default("EN_SERVICE")
+  dateAchat     DateTime? @map("date_achat")
+  dateMiseService DateTime? @map("date_mise_service")
+  active        Boolean   @default(true)
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("sous_ensembles")
+}
+
+model CompteurReleve {
+  id            String    @id @default(uuid())
+  equipmentId   String    @map("equipment_id")
+  valeur        Decimal   @db.Decimal(15, 2)
+  dateReleve    DateTime  @default(now()) @map("date_releve")
+  utilisateurId String    @map("utilisateur_id")
+  commentaire   String?
+
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  utilisateur User      @relation(fields: [utilisateurId], references: [id])
+
+  @@index([equipmentId])
+  @@index([dateReleve])
+  @@map("compteur_releves")
 }
 
 model WorkOrder {
@@ -206,6 +279,7 @@ model WorkOrder {
   coutMainOeuvre         Decimal?        @default(0) @map("cout_main_oeuvre") @db.Decimal(10, 2)
   validatedBy            String?         @map("validated_by")
   validatedAt            DateTime?       @map("validated_at")
+  deletedAt              DateTime?       @map("deleted_at")
 
   // Relations
   equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
@@ -216,49 +290,77 @@ model WorkOrder {
 
   stockMovements StockMovement[]
   ticket         Ticket?
+  atexIntervention        AtexIntervention?
+  contactAlimentaireIntervention ContactAlimentaireIntervention?
 
   @@map("work_orders")
 }
 
 model PreventivePlan {
-  id              String    @id @default(uuid())
-  equipmentId     String    @map("equipment_id")
-  title           String
-  description     String?
-  frequencyType   String    @map("frequency_type")
-  frequencyValue  Int       @map("frequency_value")
-  checklist       Json?     // JSON array of checklist items
-  lastExecution   DateTime? @map("last_execution")
-  nextExecution   DateTime? @map("next_execution")
-  alerteAvantJours Int      @default(3) @map("alerte_avant_jours")
-  autoGenerateWO  Boolean   @default(true) @map("auto_generate_wo")
-  active          Boolean   @default(true)
+  id                  String    @id @default(uuid())
+  equipmentId         String    @map("equipment_id")
+  title               String
+  description         String?
+  frequencyType       String    @map("frequency_type")
+  frequencyValue      Int       @map("frequency_value")
+  checklist           Json?     // JSON array de checklist items (legacy / inline)
+  checklistTemplateId String?   @map("checklist_template_id")
+  lastExecution       DateTime? @map("last_execution")
+  nextExecution       DateTime? @map("next_execution")
+  alerteAvantJours    Int       @default(3) @map("alerte_avant_jours")
+  autoGenerateWO      Boolean   @default(true) @map("auto_generate_wo")
+  active              Boolean   @default(true)
+  deletedAt           DateTime? @map("deleted_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment         Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  checklistTemplate ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id])
 
   @@map("preventive_plans")
 }
 
+model ChecklistTemplate {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  category    String?
+  items       Json      // Array { label: string, type: 'checkbox'|'text'|'number'|'select', required?: boolean, options?: string[] }
+  active      Boolean   @default(true)
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  preventivePlans PreventivePlan[]
+
+  @@map("checklist_templates")
+}
+
 model StockItem {
-  id            String  @id @default(uuid())
-  code          String  @unique
+  id            String    @id @default(uuid())
+  code          String    @unique
   name          String
   famille       String
-  sousFamille   String? @map("sous_famille")
+  sousFamille   String?   @map("sous_famille")
   designation   String?
-  quantite      Decimal @default(0) @db.Decimal(10, 2)
-  stockMinimum  Decimal @map("stock_minimum") @db.Decimal(10, 2)
-  stockMaximum  Decimal? @map("stock_maximum") @db.Decimal(10, 2)
+  quantite      Decimal   @default(0) @db.Decimal(10, 2)
+  stockMinimum  Decimal   @map("stock_minimum") @db.Decimal(10, 2)
+  stockMaximum  Decimal?  @map("stock_maximum") @db.Decimal(10, 2)
   localisation  String?
   unite         String?
-  prixUnitaire  Decimal? @map("prix_unitaire") @db.Decimal(10, 2)
+  prixUnitaire  Decimal?  @map("prix_unitaire") @db.Decimal(10, 2)
   fournisseur   String?
-  active        Boolean @default(true)
+  active        Boolean   @default(true)
+  deletedAt     DateTime? @map("deleted_at")
 
   // Relations
   stockMovements StockMovement[]
 
+  @@index([code])
+  @@index([deletedAt])
+  @@index([famille])
   @@map("stock_items")
 }
 
@@ -277,18 +379,22 @@ model StockMovement {
   workOrder   WorkOrder?  @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
   utilisateur User?       @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
 
+  @@index([stockItemId])
+  @@index([date])
+  @@index([workOrderId])
   @@map("stock_movements")
 }
 
 model Document {
-  id           String   @id @default(uuid())
-  equipmentId  String   @map("equipment_id")
+  id           String    @id @default(uuid())
+  equipmentId  String    @map("equipment_id")
   filename     String
-  originalName String   @map("original_name")
+  originalName String    @map("original_name")
   type         String
   path         String
-  uploadedBy   String   @map("uploaded_by")
-  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+  uploadedBy   String    @map("uploaded_by")
+  uploadedAt   DateTime  @default(now()) @map("uploaded_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   // Relations
   equipment  Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
@@ -330,6 +436,42 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model AtexIntervention {
+  id                  String    @id @default(uuid())
+  workOrderId         String    @unique @map("work_order_id")
+  consignationEffectuee Boolean @default(false) @map("consignation_effectuee")
+  permisDeFeu         Boolean   @default(false) @map("permis_de_feu")
+  outillageEx         Boolean   @default(false) @map("outillage_ex")
+  nettoyageRealise    Boolean   @default(false) @map("nettoyage_realise")
+  depressionRealise   Boolean   @default(false) @map("depression_realise")
+  inspecteurAtexId    String?   @map("inspecteur_atex_id")
+  inspecteurAtexSigneAt DateTime? @map("inspecteur_atex_signe_at")
+  commentaireAtex     String?   @map("commentaire_atex")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("atex_interventions")
+}
+
+model ContactAlimentaireIntervention {
+  id              String    @id @default(uuid())
+  workOrderId     String    @unique @map("work_order_id")
+  nettoyageRealise Boolean  @default(false) @map("nettoyage_realise")
+  produitsUtilises String?  @map("produits_utilises")
+  rincageRealise   Boolean  @default(false) @map("rincage_realise")
+  commentaire      String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("contact_alimentaire_interventions")
+}
+
 model Ticket {
   id            String       @id @default(uuid())
   numero        String       @unique
@@ -343,6 +485,7 @@ model Ticket {
   workOrderId   String?      @map("work_order_id") @unique
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
 
   // Relations
   equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)

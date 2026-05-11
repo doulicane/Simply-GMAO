@@ -7,6 +7,8 @@
  *   POST   /api/work-orders              — Creation
  *   GET    /api/work-orders/:id          — Detail
  *   PUT    /api/work-orders/:id          — Modification
+ *   DELETE /api/work-orders/:id          — Suppression logique
+ *   POST   /api/work-orders/:id/restore  — Restauration
  *   PUT    /api/work-orders/:id/status   — Changement de statut
  *   PUT    /api/work-orders/:id/assign   — Affectation technicien
  *   POST   /api/work-orders/:id/start   — Demarrer intervention
@@ -25,6 +27,8 @@ import {
 } from '@prisma/client';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
+import { AppError } from '../middleware/errorHandler';
+import { prisma } from '../config/database';
 import {
   createWorkOrder,
   listWorkOrders,
@@ -35,7 +39,14 @@ import {
   startWorkOrder,
   completeWorkOrder,
   validateWorkOrder,
+  reopenWorkOrder,
+  addPhotosToWorkOrder,
+  consumePartsOnWorkOrder,
+  deleteWorkOrder,
+  restoreWorkOrder,
 } from '../services/workOrderService';
+import { generateUniqueBTNumber } from '../utils/generators';
+import { broadcastEvent } from '../socket';
 
 const router = Router();
 
@@ -129,15 +140,15 @@ router.get(
   validate(woQuerySchema, 'query'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { items, total, page, limit } = await listWorkOrders(
+      const result = await listWorkOrders(
         req.query,
         req.user!
       );
 
       res.json({
         success: true,
-        data: items,
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);
@@ -206,6 +217,42 @@ router.put(
       );
 
       res.json({ success: true, data: workOrder, message: 'Bon de travail modifie' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// DELETE /api/work-orders/:id — Suppression logique (soft delete)
+// ---------------------------------------------------------------------------
+router.delete(
+  '/:id',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await deleteWorkOrder(req.params.id, req.user!);
+      res.json({ success: true, message: 'Bon de travail supprime avec succes' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/work-orders/:id/restore — Restauration
+// ---------------------------------------------------------------------------
+router.post(
+  '/:id/restore',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const restored = await restoreWorkOrder(req.params.id, req.user!);
+      res.json({ success: true, data: restored, message: 'Bon de travail restaure avec succes' });
     } catch (err) {
       next(err);
     }
@@ -303,6 +350,8 @@ router.post(
         req.ip ?? undefined
       );
 
+      broadcastEvent('workorder:completed', { id: updated.id, numero: updated.numero, equipmentId: updated.equipmentId, status: updated.status });
+
       res.json({ success: true, data: updated, message: 'Intervention terminee' });
     } catch (err) {
       next(err);
@@ -326,7 +375,132 @@ router.post(
         req.ip ?? undefined
       );
 
+      broadcastEvent('workorder:completed', { id: updated.id, numero: updated.numero, equipmentId: updated.equipmentId, status: updated.status });
+
       res.json({ success: true, data: updated, message: 'Bon de travail valide et cloture' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/work-orders/:id/reopen — Rouvrir un BT cloture
+// ---------------------------------------------------------------------------
+const reopenSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+router.post(
+  '/:id/reopen',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validateRequest({ params: uuidParamSchema, body: reopenSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const updated = await reopenWorkOrder(
+        req.params.id,
+        req.user!,
+        req.body.reason,
+        req.ip ?? undefined
+      );
+
+      res.json({ success: true, data: updated, message: 'Bon de travail rouvert' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/work-orders/:id/photos — Ajouter des photos
+// ---------------------------------------------------------------------------
+const photosSchema = z.object({
+  urls: z.array(z.string().min(1)).min(1).max(10),
+});
+
+router.post(
+  '/:id/photos',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE, Role.TECHNICIEN),
+  validateRequest({ params: uuidParamSchema, body: photosSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const updated = await addPhotosToWorkOrder(
+        req.params.id,
+        req.body.urls,
+        req.user!
+      );
+
+      res.json({ success: true, data: updated, message: 'Photos ajoutees' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/work-orders/:id/consume-parts — Consommer des pieces
+// ---------------------------------------------------------------------------
+const consumePartsSchema = z.object({
+  stockItemId: z.string().uuid(),
+  quantite: z.coerce.number().min(0.01),
+  commentaire: z.string().max(500).optional().nullable(),
+});
+
+router.post(
+  '/:id/consume-parts',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE, Role.TECHNICIEN),
+  validateRequest({ params: uuidParamSchema, body: consumePartsSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const movement = await consumePartsOnWorkOrder(
+        req.params.id,
+        req.body,
+        req.user!
+      );
+
+      res.status(201).json({ success: true, data: movement, message: 'Pieces consommees' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/work-orders/:id/duplicate — Dupliquer un BT
+// ---------------------------------------------------------------------------
+router.post(
+  '/:id/duplicate',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE, Role.TECHNICIEN),
+  validateRequest({ params: uuidParamSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const original = await prisma.workOrder.findUnique({
+        where: { id, deletedAt: null },
+        include: { atexIntervention: true, contactAlimentaireIntervention: true },
+      });
+      if (!original) throw new AppError('Bon de travail introuvable', 404);
+
+      const duplicated = await prisma.workOrder.create({
+        data: {
+          numero: await generateUniqueBTNumber(prisma),
+          title: `${original.title} (copie)`,
+          description: original.description,
+          equipmentId: original.equipmentId,
+          type: original.type,
+          priority: original.priority,
+          status: WorkOrderStatus.CREE,
+          demandeurId: req.user!.id,
+          coutMainOeuvre: original.coutMainOeuvre,
+        },
+        include: { equipment: true, demandeur: true },
+      });
+
+      res.status(201).json({ success: true, data: duplicated, message: 'BT duplique' });
     } catch (err) {
       next(err);
     }

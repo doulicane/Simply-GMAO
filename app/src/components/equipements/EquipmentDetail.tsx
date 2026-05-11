@@ -3,11 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   History, CalendarClock, FileText, GitBranch, X, Pencil, Trash2, Copy,
   ClipboardList, MoreVertical, Cog, Download, Plus,
-  ChevronRight, ChevronDown
+  ChevronRight, ChevronDown, Activity, FileDown, Copy as CopyIcon
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/StatusBadge';
+import { DocumentPanel } from './DocumentPanel';
+import { SousEnsemblePanel } from './SousEnsemblePanel';
+import { CompteurPanel } from './CompteurPanel';
 import type { Equipment, WorkOrder, PreventivePlan } from '@/types';
 import { STATUS_LABELS, STATUS_VARIANTS, CRITICALITY_LABELS, SUB_ASSEMBLIES } from './types';
 
@@ -18,6 +21,9 @@ interface EquipmentDetailProps {
   onClose: () => void;
   onShowQR: (eq: Equipment) => void;
   onNewBT: (eq: Equipment) => void;
+  onEdit?: (eq: Equipment) => void;
+  onDelete?: (eq: Equipment) => void;
+  onShowHistory?: (eq: Equipment) => void;
 }
 
 const TAB_ITEMS = [
@@ -25,6 +31,7 @@ const TAB_ITEMS = [
   { id: 'mp', label: 'Maint. Préventive', icon: CalendarClock },
   { id: 'docs', label: 'Documents', icon: FileText },
   { id: 'sub', label: 'Sous-ensembles', icon: GitBranch },
+  { id: 'compteur', label: 'Compteur', icon: Activity },
 ] as const;
 
 type TabId = typeof TAB_ITEMS[number]['id'];
@@ -162,19 +169,14 @@ function SubAssemblyTree({ equipmentId }: { equipmentId: string }) {
   );
 }
 
-export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClose, onShowQR, onNewBT }: EquipmentDetailProps) {
+export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClose, onShowQR, onNewBT, onEdit, onDelete, onShowHistory }: EquipmentDetailProps) {
   const [activeTab, setActiveTab] = useState<TabId>('bt');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const eqWOs = useMemo(() => workOrders.filter((wo) => wo.equipmentId === equipment.id), [workOrders, equipment.id]);
   const eqPMs = useMemo(() => preventivePlans.filter((pm) => pm.equipmentId === equipment.id), [preventivePlans, equipment.id]);
 
-  const documents = useMemo(() => [
-    { id: 'DOC-001', name: `Manuel technique ${equipment.code}.pdf`, size: '4.2 MB', date: '2023-02-10', type: 'pdf' },
-    { id: 'DOC-002', name: `Schéma hydraulique ${equipment.code}.pdf`, size: '1.8 MB', date: '2023-02-10', type: 'pdf' },
-    { id: 'DOC-003', name: `Plan maintenance ${equipment.code}.pdf`, size: '890 KB', date: '2024-01-15', type: 'pdf' },
-    ...(equipment.type === 'depoussiereur' ? [{ id: 'DOC-004', name: `Certificat conformité ${equipment.code}.pdf`, size: '1.2 MB', date: '2024-06-20', type: 'pdf' }] : []),
-  ], [equipment.code, equipment.type]);
+
 
   return (
     <motion.div
@@ -232,13 +234,13 @@ export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClos
                   exit={{ opacity: 0, y: 4, scale: 0.97 }}
                   className="absolute right-0 mt-1 w-44 bg-bg-tooltip border border-[rgba(90,94,117,0.3)] rounded-lg shadow-card-hover z-[60] overflow-hidden"
                 >
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  <button onClick={() => { setMenuOpen(false); onEdit?.(equipment); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
                     <Pencil className="w-4 h-4" /> Modifier
                   </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  <button onClick={() => { setMenuOpen(false); onShowHistory?.(equipment); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
                     <History className="w-4 h-4" /> Historique
                   </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-status-critical hover:bg-status-critical/10 transition-colors">
+                  <button onClick={() => { setMenuOpen(false); onDelete?.(equipment); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-status-critical hover:bg-status-critical/10 transition-colors">
                     <Trash2 className="w-4 h-4" /> Supprimer
                   </button>
                 </motion.div>
@@ -257,9 +259,38 @@ export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClos
           <ClipboardList className="w-4 h-4" />
           Nouveau BT
         </button>
-        <button className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5">
+        <button onClick={() => onEdit?.(equipment)} className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5">
           <Pencil className="w-4 h-4" />
           Modifier
+        </button>
+        <a
+          href={`${import.meta.env.VITE_API_URL}/equipments/${equipment.id}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5"
+        >
+          <FileDown className="w-4 h-4" />
+          Exporter PDF
+        </a>
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch(`${import.meta.env.VITE_API_URL}/equipments/${equipment.id}/duplicate`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+              });
+              const json = await res.json();
+              if (json.success) {
+                window.location.reload();
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5"
+        >
+          <CopyIcon className="w-4 h-4" />
+          Dupliquer
         </button>
       </div>
 
@@ -443,33 +474,19 @@ export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClos
           )}
 
           {activeTab === 'docs' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center gap-3 bg-bg-elevated rounded-xl border border-[rgba(90,94,117,0.2)] p-3 hover:bg-bg-hover transition-colors cursor-pointer"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-bg-primary flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-5 h-5 text-accent-teal" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">{doc.name}</p>
-                    <p className="text-xs text-text-muted">{doc.size} · {doc.date}</p>
-                  </div>
-                  <button className="p-1.5 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors">
-                    <Download className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <button className="flex items-center justify-center gap-2 bg-bg-elevated rounded-xl border border-dashed border-[rgba(90,94,117,0.3)] p-6 hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
-                <Plus className="w-5 h-5" />
-                <span className="text-sm font-medium">Ajouter un document</span>
-              </button>
-            </div>
+            <DocumentPanel equipmentId={equipment.id} />
           )}
 
           {activeTab === 'sub' && (
-            <SubAssemblyTree equipmentId={equipment.id} />
+            <SousEnsemblePanel equipmentId={equipment.id} />
+          )}
+
+          {activeTab === 'compteur' && (
+            <CompteurPanel
+              equipmentId={equipment.id}
+              compteurActuel={equipment.counterValue ?? null}
+              unite={equipment.counterUnit ?? null}
+            />
           )}
         </motion.div>
       </AnimatePresence>

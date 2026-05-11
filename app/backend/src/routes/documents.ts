@@ -4,19 +4,26 @@
  * =============================================================================
  * Endpoints :
  *   GET  /api/documents?equipmentId=xxx — Liste des documents d'un équipement
- *   DELETE /api/documents/:id           — Supprimer un document
+ *   DELETE /api/documents/:id           — Suppression logique (soft delete)
+ *   POST /api/documents/:id/restore     — Restauration
  * =============================================================================
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { prisma } from '../config/database';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
+import { Role } from '@prisma/client';
+import { validate, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
+import { paginate } from '../utils/pagination';
+import { generateFicheTechnicienPDF, generateFicheOperateurPDF, generateDocAdminPDF } from '../services/docService';
 import fs from 'fs';
 import path from 'path';
+import { env } from '../config/env';
 
 const router = Router();
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.resolve(__dirname, '../../uploads');
+const UPLOAD_DIR = env.UPLOAD_DIR;
 
 // ---------------------------------------------------------------------------
 // GET /api/documents — Liste paginée
@@ -24,32 +31,31 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.resolve(__dirname, '../../uplo
 router.get(
   '/',
   authenticate,
+  validate(paginationQuerySchema, 'query'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { equipmentId, page = '1', limit = '20' } = req.query;
+      const { page, limit } = req.query as unknown as z.infer<typeof paginationQuerySchema>;
+      const { equipmentId } = req.query;
 
-      const where: any = {};
+      const where: any = { deletedAt: null };
       if (equipmentId) where.equipmentId = equipmentId;
 
-      const skip = (Number(page) - 1) * Number(limit);
-
-      const [items, total] = await Promise.all([
-        prisma.document.findMany({
-          where,
-          skip,
-          take: Number(limit),
-          orderBy: { uploadedAt: 'desc' },
-          include: {
-            uploader: { select: { id: true, firstName: true, lastName: true } },
-            equipment: { select: { id: true, code: true, name: true } },
-          },
-        }),
-        prisma.document.count({ where }),
-      ]);
+      const result = await paginate({
+        page,
+        limit,
+        model: prisma.document,
+        where,
+        orderBy: { uploadedAt: 'desc' },
+        include: {
+          uploader: { select: { id: true, firstName: true, lastName: true } },
+          equipment: { select: { id: true, code: true, name: true } },
+        },
+      });
 
       res.json({
         success: true,
-        data: { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) },
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);
@@ -58,16 +64,17 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
-// DELETE /api/documents/:id — Suppression document + fichier
+// DELETE /api/documents/:id — Suppression document + fichier (soft delete)
 // ---------------------------------------------------------------------------
 router.delete(
   '/:id',
   authenticate,
+  validate(uuidParamSchema, 'params'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
 
-      const doc = await prisma.document.findUnique({ where: { id } });
+      const doc = await prisma.document.findUnique({ where: { id, deletedAt: null } });
       if (!doc) throw new AppError('Document non trouve', 404);
 
       // Supprimer le fichier physique
@@ -76,9 +83,103 @@ router.delete(
         fs.unlinkSync(filePath);
       }
 
-      await prisma.document.delete({ where: { id } });
+      await prisma.document.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
 
       res.json({ success: true, message: 'Document supprime' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/documents/:id/restore — Restauration
+// ---------------------------------------------------------------------------
+router.post(
+  '/:id/restore',
+  authenticate,
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const existing = await prisma.document.findUnique({ where: { id } });
+      if (!existing) {
+        throw new AppError('Document non trouve', 404);
+      }
+
+      if (!existing.deletedAt) {
+        throw new AppError('Le document n\'est pas supprime', 400);
+      }
+
+      const doc = await prisma.document.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+
+      res.json({
+        success: true,
+        data: doc,
+        message: 'Document restaure avec succes',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/documents/fiches/technicien — Fiche procédure technicien PDF
+// ---------------------------------------------------------------------------
+router.get(
+  '/fiches/technicien',
+  authenticate,
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const pdf = await generateFicheTechnicienPDF();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="fiche-technicien.pdf"');
+      res.send(pdf);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/documents/fiches/operateur — Fiche procédure opérateur PDF
+// ---------------------------------------------------------------------------
+router.get(
+  '/fiches/operateur',
+  authenticate,
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const pdf = await generateFicheOperateurPDF();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="fiche-operateur.pdf"');
+      res.send(pdf);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/documents/fiches/admin — Documentation admin PDF
+// ---------------------------------------------------------------------------
+router.get(
+  '/fiches/admin',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const pdf = await generateDocAdminPDF();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="doc-admin.pdf"');
+      res.send(pdf);
     } catch (err) {
       next(err);
     }

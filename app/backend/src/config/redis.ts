@@ -11,16 +11,15 @@
  */
 
 import Redis from 'ioredis';
-
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+import { env } from './env';
 
 // ---------------------------------------------------------------------------
 // Client Redis principal
 // ---------------------------------------------------------------------------
-export const redisClient = new Redis(REDIS_URL, {
+export const redisClient = new Redis(env.REDIS_URL, {
   maxRetriesPerRequest: null,
   enableReadyCheck: true,
-  showFriendlyErrorStack: process.env.NODE_ENV === 'development',
+  showFriendlyErrorStack: env.NODE_ENV === 'development',
 });
 
 // ---------------------------------------------------------------------------

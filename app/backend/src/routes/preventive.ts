@@ -7,6 +7,7 @@
  *   POST /api/preventive-plans              — Creation
  *   PUT  /api/preventive-plans/:id          — Modification
  *   DELETE /api/preventive-plans/:id        — Suppression (soft)
+ *   POST /api/preventive-plans/:id/restore  — Restauration
  *   POST /api/preventive-plans/:id/generate-wo — Generation manuelle BT
  *   GET  /api/preventive-plans/upcoming     — Echeances a venir
  * =============================================================================
@@ -21,6 +22,7 @@ import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } fro
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import { generateUniqueBTNumber } from '../utils/generators';
+import { paginate } from '../utils/pagination';
 
 const router = Router();
 
@@ -57,32 +59,29 @@ router.get(
     try {
       const { page, limit, sortBy, order, equipmentId, active } = req.query as unknown as z.infer<typeof planQuerySchema>;
 
-      const where: any = {};
+      const where: any = { deletedAt: null };
       if (equipmentId) where.equipmentId = equipmentId;
       if (active !== undefined) where.active = active;
 
-      const skip = (page - 1) * limit;
       const orderBy: any = sortBy ? { [sortBy]: order } : { nextExecution: 'asc' };
 
-      const [items, total] = await Promise.all([
-        prisma.preventivePlan.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy,
-          include: {
-            equipment: {
-              select: { id: true, code: true, name: true, statut: true, compteurActuel: true },
-            },
+      const result = await paginate({
+        page,
+        limit,
+        model: prisma.preventivePlan,
+        where,
+        orderBy,
+        include: {
+          equipment: {
+            select: { id: true, code: true, name: true, statut: true, compteurActuel: true },
           },
-        }),
-        prisma.preventivePlan.count({ where }),
-      ]);
+        },
+      });
 
       res.json({
         success: true,
-        data: items,
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);
@@ -103,8 +102,8 @@ router.post(
       const data = req.body;
 
       // Verifier l'equipement
-      const equipment = await prisma.equipment.findUnique({
-        where: { id: data.equipmentId },
+      const equipment = await prisma.equipment.findFirst({
+        where: { id: data.equipmentId, deletedAt: null },
       });
       if (!equipment) {
         throw new AppError('Equipement introuvable', 404);
@@ -169,7 +168,7 @@ router.put(
       const { id } = req.params;
       const data = req.body;
 
-      const existing = await prisma.preventivePlan.findUnique({ where: { id } });
+      const existing = await prisma.preventivePlan.findFirst({ where: { id, deletedAt: null } });
       if (!existing) {
         throw new AppError('Plan preventif introuvable', 404);
       }
@@ -203,20 +202,53 @@ router.delete(
     try {
       const { id } = req.params;
 
-      const existing = await prisma.preventivePlan.findUnique({ where: { id } });
+      const existing = await prisma.preventivePlan.findFirst({ where: { id, deletedAt: null } });
       if (!existing) {
         throw new AppError('Plan preventif introuvable', 404);
       }
 
-      // Soft delete : desactiver le plan
       await prisma.preventivePlan.update({
         where: { id },
-        data: { active: false },
+        data: { deletedAt: new Date() },
       });
 
-      logger.info(`Plan preventif desactive : ${existing.title} par ${req.user!.email}`);
+      logger.info(`Plan preventif supprime : ${existing.title} par ${req.user!.email}`);
 
-      res.json({ success: true, message: 'Plan preventif desactive' });
+      res.json({ success: true, message: 'Plan preventif supprime' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/preventive-plans/:id/restore
+// ---------------------------------------------------------------------------
+router.post(
+  '/:id/restore',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const existing = await prisma.preventivePlan.findUnique({ where: { id } });
+      if (!existing) {
+        throw new AppError('Plan preventif introuvable', 404);
+      }
+      if (existing.deletedAt === null) {
+        throw new AppError('Le plan n\'est pas supprime', 400);
+      }
+
+      const plan = await prisma.preventivePlan.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+
+      logger.info(`Plan preventif restaure : ${plan.title} par ${req.user!.email}`);
+
+      res.json({ success: true, data: plan, message: 'Plan preventif restaure' });
     } catch (err) {
       next(err);
     }
@@ -235,8 +267,8 @@ router.post(
     try {
       const { id } = req.params;
 
-      const plan = await prisma.preventivePlan.findUnique({
-        where: { id, active: true },
+      const plan = await prisma.preventivePlan.findFirst({
+        where: { id, deletedAt: null, active: true },
         include: { equipment: true },
       });
       if (!plan) {
@@ -249,6 +281,7 @@ router.post(
           equipmentId: plan.equipmentId,
           type: WorkOrderType.PREVENTIF,
           status: { in: [WorkOrderStatus.CREE, WorkOrderStatus.PLANIFIE, WorkOrderStatus.EN_COURS] },
+          deletedAt: null,
         },
       });
 
@@ -296,6 +329,50 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
+// POST /api/preventive-plans/:id/postpone — Reporter un preventif
+// ---------------------------------------------------------------------------
+const postponeSchema = z.object({
+  days: z.coerce.number().min(1).max(365),
+});
+
+router.post(
+  '/:id/postpone',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validateRequest({ params: uuidParamSchema, body: postponeSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { days } = req.body;
+
+      const plan = await prisma.preventivePlan.findFirst({
+        where: { id, deletedAt: null, active: true },
+      });
+      if (!plan) {
+        throw new AppError('Plan preventif introuvable ou inactif', 404);
+      }
+
+      const currentNext = plan.nextExecution ?? new Date();
+      const newNextExecution = new Date(currentNext);
+      newNextExecution.setDate(newNextExecution.getDate() + days);
+
+      const updated = await prisma.preventivePlan.update({
+        where: { id },
+        data: { nextExecution: newNextExecution },
+        include: {
+          equipment: { select: { id: true, code: true, name: true } },
+        },
+      });
+
+      logger.info(`Plan preventif ${id} reporte de ${days} jours par ${req.user!.email}`);
+      res.json({ success: true, data: updated, message: `Plan reporte de ${days} jours` });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // GET /api/preventive-plans/upcoming
 // ---------------------------------------------------------------------------
 router.get(
@@ -303,12 +380,18 @@ router.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const page = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 100);
       const daysAhead = Number(req.query.days ?? 30);
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
 
-      const plans = await prisma.preventivePlan.findMany({
+      const result = await paginate({
+        page,
+        limit,
+        model: prisma.preventivePlan,
         where: {
+          deletedAt: null,
           active: true,
           nextExecution: {
             lte: cutoffDate,
@@ -324,7 +407,7 @@ router.get(
 
       // Calculer les alertes
       const now = new Date();
-      const enrichedPlans = plans.map((plan) => {
+      const enrichedPlans = result.data.map((plan) => {
         const daysUntil = plan.nextExecution
           ? Math.ceil((plan.nextExecution.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
           : null;
@@ -338,7 +421,7 @@ router.get(
         return { ...plan, daysUntil, alertLevel };
       });
 
-      res.json({ success: true, data: enrichedPlans });
+      res.json({ success: true, data: enrichedPlans, pagination: result.pagination });
     } catch (err) {
       next(err);
     }

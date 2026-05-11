@@ -10,6 +10,7 @@
  */
 
 import { createLogger, format, transports, Logger } from 'winston';
+import { env } from '../config/env';
 
 const { combine, timestamp, json, printf, colorize, errors } = format;
 
@@ -32,13 +33,11 @@ const consoleFormat = printf(
 // ---------------------------------------------------------------------------
 // Configuration du logger
 // ---------------------------------------------------------------------------
-const logLevel = process.env.LOG_LEVEL ?? 'info';
-
 export const logger: Logger = createLogger({
-  level: logLevel,
+  level: env.LOG_LEVEL,
   defaultMeta: {
-    service: 'gmao-ramondin-api',
-    env: process.env.NODE_ENV ?? 'development',
+    service: 'simply-gmao-api',
+    env: env.NODE_ENV,
   },
   format: combine(timestamp(), errors({ stack: true }), json()),
   transports: [
@@ -60,7 +59,7 @@ export const logger: Logger = createLogger({
 // ---------------------------------------------------------------------------
 // Console en mode developpement
 // ---------------------------------------------------------------------------
-if (process.env.NODE_ENV !== 'production') {
+if (env.NODE_ENV !== 'production') {
   logger.add(
     new transports.Console({
       format: combine(

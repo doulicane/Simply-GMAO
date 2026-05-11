@@ -1,5 +1,5 @@
 # =============================================================================
-# Docker Compose — GMAO Ramondin (Stack complete)
+# Docker Compose — GMAO Simply GMAO (Stack complete)
 # =============================================================================
 # Serveur dedie usine Ubuntu 22.04 LTS
 # Services : nginx (reverse proxy) + api (Node.js) + postgres (DB) + redis (cache)
@@ -46,7 +46,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://${DB_USER:-gmao}:${DB_PASSWORD:-gmao_secret_2025}@postgres:5432/${DB_NAME:-ramondin_gmao}
+      - DATABASE_URL=postgresql://${DB_USER:-gmao}:${DB_PASSWORD:-gmao_secret_2025}@postgres:5432/${DB_NAME:-simply-gmao_gmao}
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
       - JWT_ACCESS_EXPIRATION=${JWT_ACCESS_EXPIRATION:-15m}
@@ -55,8 +55,8 @@ services:
       - UPLOAD_DIR=/data/uploads
       - MAX_FILE_SIZE=20971520
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - PUBLIC_URL=${PUBLIC_URL:-https://gmao.ramondin.local}
-      - CORS_ORIGIN=${CORS_ORIGIN:-https://gmao.ramondin.local}
+      - PUBLIC_URL=${PUBLIC_URL:-https://gmao.simply-gmao.local}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://gmao.simply-gmao.local}
     volumes:
       - gmao-uploads:/data/uploads
     depends_on:
@@ -83,7 +83,7 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=${DB_NAME:-ramondin_gmao}
+      - POSTGRES_DB=${DB_NAME:-simply-gmao_gmao}
       - POSTGRES_USER=${DB_USER:-gmao}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-gmao_secret_2025}
     volumes:
@@ -92,7 +92,7 @@ services:
     networks:
       - gmao-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gmao} -d ${DB_NAME:-ramondin_gmao}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gmao} -d ${DB_NAME:-simply-gmao_gmao}"]
       interval: 10s
       timeout: 5s
       retries: 5

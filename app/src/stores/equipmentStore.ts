@@ -1,20 +1,8 @@
 import { create } from 'zustand';
-import { useAuthStore } from './authStore';
-import { isMockMode } from './mockMode';
-import { useDataStore } from './dataStore';
 import type { Equipment, EquipmentStatus, EquipmentType, Criticality } from '@/types';
 
-const API_URL = 'http://localhost:3001/api';
-
-function getHeaders(): Record<string, string> {
-  const user = useAuthStore.getState().user;
-  const token = useAuthStore.getState().accessToken;
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    'x-demo-role': user?.role ?? '',
-  };
-}
+import { API_URL } from '@/lib/config';
+import { getAuthHeaders } from '@/lib/api';
 
 /* ------------------------------------------------------------------ */
 //  Mapping helpers
@@ -23,9 +11,9 @@ function getHeaders(): Record<string, string> {
 const mapStatus = (s: string): EquipmentStatus => {
   switch (s) {
     case 'EN_SERVICE': return 'running';
+    case 'EN_ARRET': return 'stopped';
     case 'EN_MAINTENANCE': return 'maintenance';
     case 'HORS_SERVICE': return 'stopped';
-    case 'EN_PANNE': return 'breakdown';
     default: return 'running';
   }
 };
@@ -94,47 +82,26 @@ interface EquipmentState {
   loading: boolean;
   error: string | null;
   fetchEquipment: (filters?: Record<string, string>) => Promise<void>;
+  createEquipment: (data: Record<string, any>) => Promise<Equipment | null>;
+  updateEquipment: (id: string, data: Record<string, any>) => Promise<Equipment | null>;
+  deleteEquipment: (id: string) => Promise<boolean>;
 }
 
-export const useEquipmentStore = create<EquipmentState>((set) => ({
-  equipment: isMockMode() ? useDataStore.getState().equipment : [],
+export const useEquipmentStore = create<EquipmentState>((set, get) => ({
+  equipment: [],
   loading: false,
   error: null,
 
   fetchEquipment: async (filters = {}) => {
-    if (isMockMode()) {
-      set({ loading: true, error: null });
-      // Simulate network delay for realism
-      await new Promise((r) => setTimeout(r, 200));
-      let items = useDataStore.getState().equipment;
-      if (filters.status) {
-        items = items.filter((e) => e.status === filters.status);
-      }
-      if (filters.type) {
-        items = items.filter((e) => e.type === filters.type);
-      }
-      if (filters.criticality) {
-        items = items.filter((e) => e.criticality === filters.criticality);
-      }
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        items = items.filter((e) =>
-          e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q)
-        );
-      }
-      set({ equipment: items, loading: false });
-      return;
-    }
-
     set({ loading: true, error: null });
     try {
       const params = new URLSearchParams({ ...filters, limit: '100' });
       const res = await fetch(`${API_URL}/equipments?${params}`, {
-        headers: getHeaders(),
+        headers: getAuthHeaders(),
       });
       const json = await res.json();
       if (json.success) {
-        const rawItems = Array.isArray(json.data) ? json.data : (json.data.items ?? []);
+        const rawItems = Array.isArray(json.data) ? json.data : (json.data?.items ?? []);
         const items = rawItems.map(mapBackendEquipment);
         set({ equipment: items, loading: false });
       } else {
@@ -143,5 +110,70 @@ export const useEquipmentStore = create<EquipmentState>((set) => ({
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
+  },
+
+  createEquipment: async (data) => {
+    try {
+      const res = await fetch(`${API_URL}/equipments`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const eq = mapBackendEquipment(json.data);
+        set({ equipment: [eq, ...get().equipment] });
+        return eq;
+      } else {
+        set({ error: json.error });
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+    }
+    return null;
+  },
+
+  updateEquipment: async (id, data) => {
+    try {
+      const res = await fetch(`${API_URL}/equipments/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const updated = mapBackendEquipment(json.data);
+        set({
+          equipment: get().equipment.map((e) => (e.id === id ? updated : e)),
+        });
+        return updated;
+      } else {
+        set({ error: json.error });
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+    }
+    return null;
+  },
+
+  deleteEquipment: async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/equipments/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        set({
+          equipment: get().equipment.filter((e) => e.id !== id),
+        });
+        return true;
+      } else {
+        set({ error: json.error });
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+    }
+    return false;
   },
 }));

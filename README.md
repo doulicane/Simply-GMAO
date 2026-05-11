@@ -1,7 +1,7 @@
 # Simply GMAO
 
 <p align="center">
-  <img src="app/public/logo-ramondin.svg" alt="Ramondin" width="120" />
+  <img src="app/public/logo-simply-gmao.svg" alt="Simply GMAO" width="120" />
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://gmao-ramondin-demo.vercel.app" target="_blank">
+  <a href="https://simply-gmao-demo.vercel.app" target="_blank">
     <img src="https://img.shields.io/badge/Démo%20en%20ligne-Visiter-FFD700?style=flat-square&logo=vercel&logoColor=white" alt="Démo Vercel" />
   </a>
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 19" />
@@ -41,7 +41,7 @@
 
 L'application couvre l'ensemble du cycle de vie de la maintenance : de la déclaration de panne par l'opérateur de production jusqu'à la planification préventive, en passant par la gestion des stocks de pièces détachées et le suivi des interventions.
 
-🔗 **Démo en ligne** : [https://gmao-ramondin-demo.vercel.app](https://gmao-ramondin-demo.vercel.app)
+🔗 **Démo en ligne** : [https://simply-gmao-demo.vercel.app](https://simply-gmao-demo.vercel.app)
 
 > **Identifiants de démo** :
 > - Responsable : `resp` / `responsable`
@@ -275,13 +275,13 @@ Le backend est containerisé avec PostgreSQL, Redis, Nginx et l'API Node.js.
 - [ ] V5 — Application mobile (PWA / React Native)
 - [ ] V6 — Intelligence prédictive (ML)
 
-Consultez [`ramondin_gmao_roadmap_dev.md`](ramondin_gmao_roadmap_dev.md) pour le détail complet.
+Consultez [`simply-gmao_gmao_roadmap_dev.md`](simply-gmao_gmao_roadmap_dev.md) pour le détail complet.
 
 ---
 
 ## 📝 Licence
 
-Projet interne — Tous droits réservés © Ramondin.
+Projet interne — Tous droits réservés © Simply GMAO.
 
 ---
 

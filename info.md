@@ -1,7 +1,7 @@
-# Research Findings — GMAO Ramondin
+# Research Findings — GMAO Simply GMAO
 
 ## Contexte Entreprise
-Ramondin : leader mondial capsules aluminium pour vins/spiritueux. 3 milliards d'unités/an, 500-1000 employés, sites Espagne (Laguardia), France (Saint-Gaudens, Troyes), USA (Napa), Chili. Production en 3×8. Certifications ISO 9001, 14001, HACCP.
+Simply GMAO : leader mondial capsules aluminium pour vins/spiritueux. 3 milliards d'unités/an, 500-1000 employés, sites Espagne (Laguardia), France (Saint-Gaudens, Troyes), USA (Napa), Chili. Production en 3×8. Certifications ISO 9001, 14001, HACCP.
 
 ## Équipements Critiques (à digitaliser)
 1. Presses d'emboutissage (CRITIQUE) — matrices 15-80K€, arrêt 2-5K€/h

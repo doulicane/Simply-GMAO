@@ -17,7 +17,7 @@ export async function logAudit(params: AuditParams): Promise<void> {
         action: params.action,
         entityType: params.entityType,
         entityId: params.entityId,
-        details: params.details ?? null,
+        details: (params.details ?? null) as any,
         ipAddress: params.ipAddress ?? null,
       },
     });

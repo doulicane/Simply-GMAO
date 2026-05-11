@@ -17,12 +17,14 @@ import { prisma } from '../config/database';
 import { redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 import { generateUniqueBTNumber } from '../utils/generators';
+import { calculateNextExecution } from '../utils/preventive';
+import { env } from '../config/env';
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 const QUEUE_NAME = 'preventive-generation';
-const CRON_EXPRESSION = process.env.PREVENTIVE_CRON ?? '0 * * * *'; // Toutes les heures par defaut
+const CRON_EXPRESSION = env.PREVENTIVE_CRON;
 
 // ---------------------------------------------------------------------------
 // Queue BullMQ
@@ -46,7 +48,7 @@ export const preventiveWorker = new Worker(
     logger.info('[PreventiveJob] Demarrage generation automatique BT preventifs...');
 
     const now = new Date();
-    const alertDays = Number(process.env.PREVENTIVE_ALERT_DAYS ?? 3);
+    const alertDays = env.PREVENTIVE_ALERT_DAYS;
     const alertDate = new Date(now.getTime() + alertDays * 24 * 60 * 60 * 1000);
 
     // Rechercher les plans preventifs actifs dont l'echeance est proche
@@ -130,12 +132,18 @@ export const preventiveWorker = new Worker(
           },
         });
 
-        // Mettre a jour la date de derniere execution du plan
-        // (on la met a jour quand le BT est cree, puis on la recalculera a la cloture)
+        // Recalculer nextExecution et mettre a jour lastExecution
+        const newNextExecution = calculateNextExecution(
+          now,
+          plan.frequencyType,
+          plan.frequencyValue
+        );
+
         await prisma.preventivePlan.update({
           where: { id: plan.id },
           data: {
             lastExecution: now,
+            nextExecution: newNextExecution,
           },
         });
 
@@ -193,7 +201,7 @@ export async function schedulePreventiveJob(): Promise<void> {
 // Fonction manuelle (pour test ou trigger API)
 // ---------------------------------------------------------------------------
 export async function triggerPreventiveGeneration(): Promise<{ generatedCount: number; plansExamined: number }> {
-  const job = await preventiveQueue.add('generate-preventive-wo', { manual: true });
+  await preventiveQueue.add('generate-preventive-wo', { manual: true });
   // Le worker traitera le job de maniere asynchrone
   return { generatedCount: 0, plansExamined: 0 };
 }

@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler';
+import type { PrismaClientInstance } from '../config/database';
 
 const MAX_RETRIES = 10;
 
@@ -8,7 +8,7 @@ function randomSuffix(length = 5): string {
 }
 
 export async function generateUniqueBTNumber(
-  prisma: PrismaClient,
+  prisma: PrismaClientInstance,
   prefix = ''
 ): Promise<string> {
   const year = new Date().getFullYear();
@@ -24,7 +24,7 @@ export async function generateUniqueBTNumber(
 }
 
 export async function generateUniqueTicketNumber(
-  prisma: PrismaClient
+  prisma: PrismaClientInstance
 ): Promise<string> {
   const year = new Date().getFullYear();
 

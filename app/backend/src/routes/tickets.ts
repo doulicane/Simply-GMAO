@@ -11,6 +11,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
+import { paginate } from '../utils/pagination';
 import { generateUniqueBTNumber, generateUniqueTicketNumber } from '../utils/generators';
 import { AppError } from '../middleware/errorHandler';
 import { Role, TicketStatus, Priority, WorkOrderType, WorkOrderStatus } from '@prisma/client';
@@ -51,6 +53,12 @@ const convertToBTSchema = z.object({
   technicienId: z.string().uuid().optional(),
 });
 
+const ticketQuerySchema = paginationQuerySchema.extend({
+  status: z.nativeEnum(TicketStatus).optional(),
+  operateurId: z.string().uuid().optional(),
+  equipmentId: z.string().uuid().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Helper : generer un numero de ticket
 // ---------------------------------------------------------------------------
@@ -63,18 +71,19 @@ router.post(
   '/',
   authenticate,
   authorize(Role.OPERATEUR, Role.RESPONSABLE, Role.TECHNICIEN, Role.HSE),
+  validate(createTicketSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const data = createTicketSchema.parse(req.body);
+      const data = req.body;
 
       // Resoudre l'equipement : par UUID (equipmentId) ou par code (equipmentCode)
       let resolvedEquipmentId: string | null = null;
       if (data.equipmentId) {
-        const eq = await prisma.equipment.findUnique({ where: { id: data.equipmentId } });
+        const eq = await prisma.equipment.findUnique({ where: { id: data.equipmentId, deletedAt: null } });
         if (eq) resolvedEquipmentId = eq.id;
       }
       if (!resolvedEquipmentId && data.equipmentCode) {
-        const eq = await prisma.equipment.findUnique({ where: { code: data.equipmentCode } });
+        const eq = await prisma.equipment.findUnique({ where: { code: data.equipmentCode, deletedAt: null } });
         if (eq) resolvedEquipmentId = eq.id;
       }
       if ((data.equipmentId || data.equipmentCode) && !resolvedEquipmentId) {
@@ -110,10 +119,11 @@ router.post(
 router.get(
   '/',
   authenticate,
+  validate(ticketQuerySchema, 'query'),
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { status, operateurId, equipmentId, page = '1', limit = '20' } = req.query;
+    const { status, operateurId, equipmentId, page, limit } = req.query as unknown as z.infer<typeof ticketQuerySchema>;
 
-    const where: any = {};
+    const where: any = { deletedAt: null };
     if (status) where.status = status;
     if (operateurId) where.operateurId = operateurId;
     if (equipmentId) where.equipmentId = equipmentId;
@@ -123,26 +133,23 @@ router.get(
       where.operateurId = req.user!.id;
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const [items, total] = await Promise.all([
-      prisma.ticket.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: {
-          equipment: { select: { id: true, code: true, name: true } },
-          operateur: { select: { id: true, firstName: true, lastName: true } },
-          workOrder: { select: { id: true, numero: true, status: true } },
-        },
-      }),
-      prisma.ticket.count({ where }),
-    ]);
+    const result = await paginate({
+      page,
+      limit,
+      model: prisma.ticket,
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        equipment: { select: { id: true, code: true, name: true } },
+        operateur: { select: { id: true, firstName: true, lastName: true } },
+        workOrder: { select: { id: true, numero: true, status: true } },
+      },
+    });
 
     res.json({
       success: true,
-      data: { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) },
+      data: result.data,
+      pagination: result.pagination,
     });
   })
 );
@@ -153,9 +160,10 @@ router.get(
 router.get(
   '/:id',
   authenticate,
+  validate(uuidParamSchema, 'params'),
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id, deletedAt: null },
       include: {
         equipment: { select: { id: true, code: true, name: true, statut: true } },
         operateur: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -179,16 +187,65 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
+// DELETE /api/tickets/:id — Suppression logique (soft delete)
+// ---------------------------------------------------------------------------
+router.delete(
+  '/:id',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validate(uuidParamSchema, 'params'),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id, deletedAt: null } });
+    if (!ticket) throw new AppError('Ticket non trouve', 404);
+
+    await prisma.ticket.update({
+      where: { id: req.params.id },
+      data: { deletedAt: new Date() },
+    });
+
+    res.json({ success: true, message: 'Ticket supprime avec succes' });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/tickets/:id/restore — Restauration
+// ---------------------------------------------------------------------------
+router.post(
+  '/:id/restore',
+  authenticate,
+  authorize(Role.ADMIN, Role.RESPONSABLE),
+  validate(uuidParamSchema, 'params'),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+    if (!ticket) throw new AppError('Ticket non trouve', 404);
+    if (!ticket.deletedAt) throw new AppError('Le ticket n\'est pas supprime', 400);
+
+    const restored = await prisma.ticket.update({
+      where: { id: req.params.id },
+      data: { deletedAt: null },
+      include: {
+        equipment: { select: { id: true, code: true, name: true } },
+        operateur: { select: { id: true, firstName: true, lastName: true } },
+        workOrder: { select: { id: true, numero: true, status: true } },
+      },
+    });
+
+    res.json({ success: true, data: restored, message: 'Ticket restaure avec succes' });
+  })
+);
+
+// ---------------------------------------------------------------------------
 // PATCH /api/tickets/:id/status — Changer le statut (manager)
 // ---------------------------------------------------------------------------
 router.patch(
   '/:id/status',
   authenticate,
   authorize(Role.RESPONSABLE),
+  validateRequest({ params: uuidParamSchema, body: updateStatusSchema }),
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { status, commentaire } = updateStatusSchema.parse(req.body);
+    const { status, commentaire } = req.body;
 
-    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id, deletedAt: null } });
     if (!ticket) throw new AppError('Ticket non trouve', 404);
     if (ticket.status === TicketStatus.CONVERTI_EN_BT) {
       throw new AppError('Ticket deja converti en BT, statut non modifiable', 400);
@@ -217,11 +274,12 @@ router.post(
   '/:id/convert',
   authenticate,
   authorize(Role.RESPONSABLE),
+  validateRequest({ params: uuidParamSchema, body: convertToBTSchema }),
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const data = convertToBTSchema.parse(req.body);
+    const data = req.body;
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id, deletedAt: null },
       include: { equipment: true },
     });
     if (!ticket) throw new AppError('Ticket non trouve', 404);

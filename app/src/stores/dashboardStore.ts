@@ -1,18 +1,8 @@
 import { create } from 'zustand';
-import { useAuthStore } from './authStore';
-import { isMockMode } from './mockMode';
-import { useDataStore } from './dataStore';
 import type { DashboardKPI, AlertItem, WorkOrder, PreventivePlan, AvailabilityByLine } from '@/types';
 
-const API_URL = 'http://localhost:3001/api';
-
-function getHeaders(): Record<string, string> {
-  const user = useAuthStore.getState().user;
-  return {
-    'Content-Type': 'application/json',
-    'x-demo-role': user?.role ?? '',
-  };
-}
+import { API_URL } from '@/lib/config';
+import { getAuthHeaders } from '@/lib/api';
 
 /* ------------------------------------------------------------------ */
 //  Mapping helpers : backend → frontend types
@@ -128,7 +118,7 @@ interface DashboardState {
 }
 
 export const useDashboardStore = create<DashboardState>((set) => ({
-  kpi: isMockMode() ? useDataStore.getState().kpi : {
+  kpi: {
     availability: 0,
     availabilityTrend: 0,
     mttr: 0,
@@ -142,36 +132,21 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     lowWorkOrders: 0,
     overdueWorkOrders: 0,
   },
-  alerts: isMockMode() ? useDataStore.getState().alerts : [],
-  workOrders: isMockMode() ? useDataStore.getState().workOrders.slice(0, 15) : [],
-  preventivePlans: isMockMode() ? useDataStore.getState().preventivePlans : [],
-  availabilityByLine: isMockMode() ? useDataStore.getState().availabilityByLine : [],
+  alerts: [],
+  workOrders: [],
+  preventivePlans: [],
+  availabilityByLine: [],
   loading: false,
   error: null,
 
   fetchDashboard: async () => {
-    if (isMockMode()) {
-      set({ loading: true, error: null });
-      await new Promise((r) => setTimeout(r, 300));
-      const ds = useDataStore.getState();
-      set({
-        kpi: ds.kpi,
-        alerts: ds.alerts,
-        workOrders: ds.workOrders.slice(0, 15),
-        preventivePlans: ds.preventivePlans,
-        availabilityByLine: ds.availabilityByLine,
-        loading: false,
-      });
-      return;
-    }
-
     set({ loading: true, error: null });
     try {
       const [kpisRes, alertsRes, recentRes, upcomingRes] = await Promise.all([
-        fetch(`${API_URL}/dashboard/kpis`, { headers: getHeaders() }),
-        fetch(`${API_URL}/dashboard/alerts`, { headers: getHeaders() }),
-        fetch(`${API_URL}/dashboard/recent-work-orders?limit=15`, { headers: getHeaders() }),
-        fetch(`${API_URL}/dashboard/upcoming-preventive?days=30`, { headers: getHeaders() }),
+        fetch(`${API_URL}/dashboard/kpis`, { headers: getAuthHeaders() }),
+        fetch(`${API_URL}/dashboard/alerts`, { headers: getAuthHeaders() }),
+        fetch(`${API_URL}/dashboard/recent-work-orders?limit=15`, { headers: getAuthHeaders() }),
+        fetch(`${API_URL}/dashboard/upcoming-preventive?days=30`, { headers: getAuthHeaders() }),
       ]);
 
       const [kpisJson, alertsJson, recentJson, upcomingJson] = await Promise.all([

@@ -13,6 +13,9 @@ import {
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { StockItem } from '@/types';
+import { StockCreationModal } from '@/components/stock/StockCreationModal';
+import { StockMovementModal } from '@/components/stock/StockMovementModal';
+import { StockEditModal } from '@/components/stock/StockEditModal';
 
 type StockView = 'stock' | 'mouvements' | 'commandes' | 'alertes';
 
@@ -202,13 +205,12 @@ function StockTable({
 
   const cols = [
     { key: 'code', label: 'Code', width: '110px' },
-    { key: 'name', label: 'Désignation', width: '250px' },
+    { key: 'name', label: 'Désignation', width: '280px' },
     { key: 'category', label: 'Catégorie', width: '120px' },
     { key: 'quantity', label: 'Quantité', width: '90px' },
     { key: 'minStock', label: 'Min.', width: '70px' },
     { key: 'location', label: 'Zone', width: '150px' },
     { key: 'lastRestockDate', label: 'Dernier mouv.', width: '110px' },
-    { key: 'actions', label: 'Actions', width: '80px' },
   ];
 
   return (
@@ -301,31 +303,13 @@ function StockTable({
                       <td className="px-4 py-3 text-sm text-text-secondary">
                         {item.lastRestockDate ? format(parseISO(item.lastRestockDate), 'dd/MM/yy') : '—'}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onView(item); }}
-                            className="p-1.5 rounded-md hover:bg-bg-hover text-text-secondary hover:text-text-primary"
-                            title="Voir"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded-md hover:bg-bg-hover text-text-secondary hover:text-text-primary"
-                            title="Plus"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
                     </motion.tr>
                   );
                 })}
               </AnimatePresence>
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-text-secondary">
+                  <td colSpan={7} className="px-4 py-12 text-center text-text-secondary">
                     <Package className="w-8 h-8 mx-auto mb-3 text-text-muted" />
                     <p className="text-sm font-medium">Aucune pièce en stock</p>
                     <p className="text-xs text-text-muted mt-1">Ajouter votre première pièce</p>
@@ -340,37 +324,18 @@ function StockTable({
   );
 }
 
-function StockMovementsView({ items }: { items: StockItem[] }) {
-  // Simulated movement data based on stock items
-  const movements = useMemo(() => {
-    const types = ['Entrée', 'Sortie', 'Ajustement'] as const;
-    const reasons = ['BT-4521', 'Inventaire', 'Commande', 'Retour', 'Autre'];
-    const users = ['Jean Martin', 'Sophie Moreau', 'Marie Lefebvre'];
-    const data: { date: string; type: typeof types[number]; item: StockItem; qty: number; reason: string; user: string }[] = [];
-    items.forEach((item) => {
-      if (item.lastRestockDate) {
-        data.push({
-          date: item.lastRestockDate,
-          type: 'Entrée',
-          item,
-          qty: Math.max(1, Math.floor(item.quantity * 0.3)),
-          reason: 'Commande',
-          user: users[Math.floor(Math.random() * users.length)],
-        });
-      }
-      if (item.quantity < item.maxStock) {
-        data.push({
-          date: format(new Date(Date.now() - Math.random() * 30 * 86400000), 'yyyy-MM-dd'),
-          type: 'Sortie',
-          item,
-          qty: -Math.max(1, Math.floor(Math.random() * 3)),
-          reason: reasons[Math.floor(Math.random() * reasons.length)],
-          user: users[Math.floor(Math.random() * users.length)],
-        });
-      }
+function StockMovementsView() {
+  const { fetchMovements } = useStockStore();
+  const [movements, setMovements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchMovements().then((data) => {
+      setMovements(data);
+      setLoading(false);
     });
-    return data.sort((a, b) => b.date.localeCompare(a.date));
-  }, [items]);
+  }, [fetchMovements]);
 
   return (
     <div className="bg-bg-elevated rounded-xl border border-[rgba(90,94,117,0.2)] overflow-hidden">
@@ -391,39 +356,49 @@ function StockMovementsView({ items }: { items: StockItem[] }) {
             </tr>
           </thead>
           <tbody>
-            {movements.map((m, idx) => (
-              <motion.tr
-                key={`${m.item.id}-${idx}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: idx * 0.02 }}
-                className="border-b border-[rgba(90,94,117,0.1)] hover:bg-bg-hover"
-              >
-                <td className="px-4 py-3 text-sm font-mono text-text-secondary">{format(parseISO(m.date), 'dd/MM/yyyy')}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge
-                    status={m.type === 'Entrée' ? 'ok' : m.type === 'Sortie' ? 'info' : 'warning'}
-                    label={m.type}
-                  />
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-text-secondary">
+                  <History className="w-8 h-8 mx-auto mb-3 text-text-muted animate-spin" />
+                  <p className="text-sm font-medium">Chargement...</p>
                 </td>
-                <td className="px-4 py-3 text-sm font-mono text-accent-teal">{m.item.code}</td>
-                <td className="px-4 py-3 text-sm text-text-primary">{m.item.name}</td>
-                <td className="px-4 py-3">
-                  <span className={cn('text-sm font-medium tabular-nums', m.qty > 0 ? 'text-status-ok' : 'text-status-critical')}>
-                    {m.qty > 0 ? '+' : ''}{m.qty}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{m.reason}</td>
-                <td className="px-4 py-3 text-sm text-text-secondary">{m.user}</td>
-              </motion.tr>
-            ))}
-            {movements.length === 0 && (
+              </tr>
+            ) : movements.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-text-secondary">
                   <History className="w-8 h-8 mx-auto mb-3 text-text-muted" />
                   <p className="text-sm font-medium">Aucun mouvement enregistré</p>
                 </td>
               </tr>
+            ) : (
+              movements.map((m, idx) => (
+                <motion.tr
+                  key={m.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: idx * 0.02 }}
+                  className="border-b border-[rgba(90,94,117,0.1)] hover:bg-bg-hover"
+                >
+                  <td className="px-4 py-3 text-sm font-mono text-text-secondary">{m.date ? format(parseISO(m.date), 'dd/MM/yyyy HH:mm') : '—'}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge
+                      status={m.type === 'ENTREE' || m.type === 'RETOUR' ? 'ok' : m.type === 'SORTIE' || m.type === 'RESERVATION' ? 'info' : 'warning'}
+                      label={m.type}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-sm font-mono text-accent-teal">{m.stockItem?.code ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-primary">{m.stockItem?.name ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={cn('text-sm font-medium tabular-nums',
+                      m.type === 'ENTREE' || m.type === 'RETOUR' ? 'text-status-ok' : m.type === 'SORTIE' || m.type === 'RESERVATION' ? 'text-status-critical' : 'text-accent-teal'
+                    )}>
+                      {m.type === 'ENTREE' || m.type === 'RETOUR' ? '+' : m.type === 'SORTIE' || m.type === 'RESERVATION' ? '-' : ''}{m.quantite}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{m.commentaire ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{m.utilisateur ? `${m.utilisateur.firstName} ${m.utilisateur.lastName}` : '—'}</td>
+                </motion.tr>
+              ))
             )}
           </tbody>
         </table>
@@ -433,12 +408,7 @@ function StockMovementsView({ items }: { items: StockItem[] }) {
 }
 
 function StockCommandesView() {
-  const commandes = [
-    { id: 'CMD-2025-001', fournisseur: 'SKF', date: '2025-04-15', prevue: '2025-05-10', articles: 3, statut: 'en_attente' as const },
-    { id: 'CMD-2025-002', fournisseur: 'Atlas Copco', date: '2025-04-20', prevue: '2025-05-15', articles: 2, statut: 'partielle' as const },
-    { id: 'CMD-2025-003', fournisseur: 'Siemens', date: '2025-04-25', prevue: '2025-05-20', articles: 1, statut: 'en_attente' as const },
-    { id: 'CMD-2025-004', fournisseur: 'Festo', date: '2025-03-10', prevue: '2025-04-05', articles: 4, statut: 'recue' as const },
-  ];
+  const commandes: { id: string; fournisseur: string; date: string; prevue: string; articles: number; statut: string }[] = [];
 
   const statusMap: Record<string, { status: 'ok' | 'warning' | 'critical' | 'info' | 'neutral'; label: string }> = {
     en_attente: { status: 'info', label: 'En attente' },
@@ -479,6 +449,14 @@ function StockCommandesView() {
                 </tr>
               );
             })}
+            {commandes.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-text-secondary">
+                  <ShoppingCart className="w-8 h-8 mx-auto mb-3 text-text-muted" />
+                  <p className="text-sm font-medium">Aucune commande enregistrée</p>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -572,23 +550,41 @@ function StockPartDrawer({
   item,
   open,
   onClose,
+  onNewMovement,
+  onEdit,
+  onDelete,
 }: {
   item: StockItem | null;
   open: boolean;
   onClose: () => void;
+  onNewMovement: (item: StockItem) => void;
+  onEdit: (item: StockItem) => void;
+  onDelete: (item: StockItem) => void;
 }) {
+  const { fetchItemDetail } = useStockStore();
+  const [detail, setDetail] = useState<{ item: StockItem; movements: any[] } | null>(null);
+  const [loadingMovements, setLoadingMovements] = useState(false);
+
+  useEffect(() => {
+    if (open && item) {
+      setLoadingMovements(true);
+      fetchItemDetail(item.id).then((d) => {
+        if (d) setDetail({ item: d, movements: d.movements ?? [] });
+        setLoadingMovements(false);
+      });
+    } else {
+      setDetail(null);
+    }
+  }, [open, item]);
+
   if (!item) return null;
 
   const available = item.quantity;
-  const progressOk = Math.min((available / item.maxStock) * 100, 100);
+  const progressMax = item.maxStock > 0 ? item.maxStock : Math.max(item.quantity, item.minStock, 1);
+  const progressOk = Math.min((available / progressMax) * 100, 100);
   const isUnderMin = available <= item.minStock;
 
-  // Simulated movements
-  const movements = [
-    { date: item.lastRestockDate ?? '2025-03-15', type: 'Entrée', qty: Math.max(1, Math.floor(item.quantity * 0.4)), user: 'Jean Martin' },
-    { date: format(new Date(Date.now() - 15 * 86400000), 'yyyy-MM-dd'), type: 'Sortie', qty: -2, user: 'Sophie Moreau' },
-    { date: format(new Date(Date.now() - 45 * 86400000), 'yyyy-MM-dd'), type: 'Entrée', qty: Math.max(1, Math.floor(item.quantity * 0.3)), user: 'Marie Lefebvre' },
-  ].filter((m) => m.date);
+  const movements = detail?.movements ?? [];
 
   return (
     <AnimatePresence>
@@ -636,13 +632,13 @@ function StockPartDrawer({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-text-secondary">Maximum</span>
-                  <span className="text-sm font-medium text-text-primary">{item.maxStock}</span>
+                  <span className="text-sm font-medium text-text-primary">{item.maxStock || '—'}</span>
                 </div>
                 <div className="w-full h-2 bg-bg-elevated rounded-full overflow-hidden">
                   <div className="flex h-full rounded-full">
                     <div className="h-full bg-status-ok rounded-l-full" style={{ width: `${progressOk}%` }} />
                     {isUnderMin && (
-                      <div className="h-full bg-status-critical rounded-r-full" style={{ width: `${Math.max(0, ((item.minStock - available) / item.maxStock) * 100)}%` }} />
+                      <div className="h-full bg-status-critical rounded-r-full" style={{ width: `${Math.max(0, ((item.minStock - available) / progressMax) * 100)}%` }} />
                     )}
                   </div>
                 </div>
@@ -681,43 +677,70 @@ function StockPartDrawer({
                   Historique mouvements
                 </h3>
                 <div className="bg-bg-primary rounded-lg overflow-hidden">
-                  {movements.map((m, idx) => (
-                    <div
-                      key={idx}
-                      className={cn(
-                        'flex items-center justify-between px-4 py-3',
-                        idx < movements.length - 1 && 'border-b border-[rgba(90,94,117,0.1)]'
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center',
-                          m.type === 'Entrée' ? 'bg-[rgba(34,197,94,0.12)] text-status-ok' : 'bg-[rgba(239,68,68,0.12)] text-status-critical'
-                        )}>
-                          {m.type === 'Entrée' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  {loadingMovements ? (
+                    <div className="px-4 py-6 text-center text-text-muted text-sm">Chargement...</div>
+                  ) : movements.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-text-muted text-sm">Aucun mouvement enregistré</div>
+                  ) : (
+                    movements.map((m, idx) => (
+                      <div
+                        key={m.id}
+                        className={cn(
+                          'flex items-center justify-between px-4 py-3',
+                          idx < movements.length - 1 && 'border-b border-[rgba(90,94,117,0.1)]'
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center',
+                            m.type === 'ENTREE' || m.type === 'RETOUR'
+                              ? 'bg-[rgba(34,197,94,0.12)] text-status-ok'
+                              : m.type === 'SORTIE' || m.type === 'RESERVATION'
+                              ? 'bg-[rgba(239,68,68,0.12)] text-status-critical'
+                              : 'bg-[rgba(14,165,233,0.12)] text-accent-teal'
+                          )}>
+                            {m.type === 'ENTREE' || m.type === 'RETOUR' ? <TrendingUp className="w-4 h-4" /> : m.type === 'SORTIE' || m.type === 'RESERVATION' ? <TrendingDown className="w-4 h-4" /> : <SlidersHorizontal className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <div className="text-sm text-text-primary">{m.type}</div>
+                            <div className="text-xs text-text-muted">{m.utilisateur ? `${m.utilisateur.firstName} ${m.utilisateur.lastName}` : '—'}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-sm text-text-primary">{m.type}</div>
-                          <div className="text-xs text-text-muted">{m.user}</div>
+                        <div className="text-right">
+                          <div className={cn('text-sm font-medium tabular-nums',
+                            m.type === 'ENTREE' || m.type === 'RETOUR' ? 'text-status-ok' : m.type === 'SORTIE' || m.type === 'RESERVATION' ? 'text-status-critical' : 'text-accent-teal'
+                          )}>
+                            {m.type === 'ENTREE' || m.type === 'RETOUR' ? '+' : m.type === 'SORTIE' || m.type === 'RESERVATION' ? '-' : ''}{m.quantite}
+                          </div>
+                          <div className="text-xs text-text-muted">{m.date ? format(parseISO(m.date), 'dd/MM/yyyy HH:mm') : '—'}</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className={cn('text-sm font-medium tabular-nums', m.qty > 0 ? 'text-status-ok' : 'text-status-critical')}>
-                          {m.qty > 0 ? '+' : ''}{m.qty}
-                        </div>
-                        <div className="text-xs text-text-muted">{m.date ? format(parseISO(m.date), 'dd/MM/yyyy') : '—'}</div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Footer */}
             <div className="sticky bottom-0 bg-bg-elevated border-t border-[rgba(90,94,117,0.2)] px-6 py-4 flex items-center gap-2">
-              <button className="btn-primary flex-1 text-sm h-10">Nouveau mouvement</button>
-              <button className="btn-secondary text-sm h-10 px-3">Modifier</button>
-              <button className="btn-secondary text-sm h-10 px-3">Commander</button>
+              <button
+                onClick={() => onNewMovement(item)}
+                className="flex-1 text-sm h-10 rounded-lg font-medium text-[#0A0A0A] bg-[#FF8500] hover:bg-[#FF8500]/90 transition-colors"
+              >
+                Nouveau mouvement
+              </button>
+              <button
+                onClick={() => onEdit(item)}
+                className="text-sm h-10 px-4 rounded-lg font-medium text-[#0A0A0A] bg-[#FF8500] hover:bg-[#FF8500]/90 transition-colors"
+              >
+                Modifier
+              </button>
+              <button
+                onClick={() => onDelete(item)}
+                className="text-sm h-10 px-4 rounded-lg font-medium text-white bg-[#E63946] hover:bg-[#E63946]/90 transition-colors"
+              >
+                Retirer
+              </button>
             </div>
           </motion.div>
         </>
@@ -741,9 +764,14 @@ export default function Stocks() {
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [movementModalOpen, setMovementModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [movementDefaultType, setMovementDefaultType] = useState<'ENTREE' | 'SORTIE' | 'AJUSTEMENT'>('ENTREE');
+  const [movementPreselectedItem, setMovementPreselectedItem] = useState<StockItem | null>(null);
 
-  const categories = useMemo(() => Array.from(new Set(stockItems.map((i) => i.category))).sort(), [stockItems]);
-  const zones = useMemo(() => Array.from(new Set(stockItems.map((i) => i.location))).sort(), [stockItems]);
+  const categories = useMemo(() => Array.from(new Set(stockItems.map((i) => i.category).filter(Boolean))).sort(), [stockItems]);
+  const zones = useMemo(() => Array.from(new Set(stockItems.map((i) => i.location).filter(Boolean))).sort(), [stockItems]);
 
   const filteredItems = useMemo(() => {
     return stockItems.filter((item) => {
@@ -782,15 +810,21 @@ export default function Stocks() {
               className="input-industrial w-[240px] pl-9 hidden md:block"
             />
           </div>
-          <button className="btn-secondary h-10 px-3 text-xs flex items-center gap-1.5">
+          <button
+            onClick={() => { setMovementDefaultType('ENTREE'); setMovementPreselectedItem(null); setMovementModalOpen(true); }}
+            className="btn-secondary h-10 px-3 text-xs flex items-center gap-1.5"
+          >
             <TrendingDown className="w-3.5 h-3.5" />
             Entrée
           </button>
-          <button className="btn-secondary h-10 px-3 text-xs flex items-center gap-1.5">
+          <button
+            onClick={() => { setMovementDefaultType('SORTIE'); setMovementPreselectedItem(null); setMovementModalOpen(true); }}
+            className="btn-secondary h-10 px-3 text-xs flex items-center gap-1.5"
+          >
             <TrendingUp className="w-3.5 h-3.5" />
             Sortie
           </button>
-          <button className="btn-primary flex items-center gap-2 text-sm h-10">
+          <button onClick={() => setCreateModalOpen(true)} className="btn-primary flex items-center gap-2 text-sm h-10">
             <Plus className="w-4 h-4" />
             Nouvelle pièce
           </button>
@@ -846,7 +880,7 @@ export default function Stocks() {
             <StockTable items={filteredItems} onView={handleView} />
           )}
           {activeTab === 'mouvements' && (
-            <StockMovementsView items={filteredItems} />
+            <StockMovementsView />
           )}
           {activeTab === 'commandes' && (
             <StockCommandesView />
@@ -862,6 +896,33 @@ export default function Stocks() {
         item={selectedItem}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        onNewMovement={(item) => { setMovementPreselectedItem(item); setMovementDefaultType('ENTREE'); setMovementModalOpen(true); }}
+        onEdit={(item) => { setSelectedItem(item); setEditModalOpen(true); }}
+        onDelete={(item) => {
+          if (confirm(`Retirer l'article "${item.name}" du stock ?`)) {
+            useStockStore.getState().deleteItem(item.id).then((ok) => {
+              if (ok) setDrawerOpen(false);
+            });
+          }
+        }}
+      />
+
+      <StockCreationModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
+
+      <StockMovementModal
+        open={movementModalOpen}
+        onClose={() => setMovementModalOpen(false)}
+        preselectedItem={movementPreselectedItem}
+        defaultType={movementDefaultType}
+      />
+
+      <StockEditModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        item={selectedItem}
       />
     </div>
   );

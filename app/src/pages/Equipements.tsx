@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { Search, ScanLine, Plus, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useDataStore } from '@/stores/dataStore';
 import { useEquipmentStore } from '@/stores/equipmentStore';
 import type { Equipment } from '@/types';
 import type { TreeNode, ViewMode, EquipmentFilters } from '@/components/equipements/types';
@@ -12,129 +12,17 @@ import { EquipmentGrid } from '@/components/equipements/EquipmentGrid';
 import { EquipmentList } from '@/components/equipements/EquipmentList';
 import { FilterBar } from '@/components/equipements/FilterBar';
 import { QRCodeModal } from '@/components/equipements/QRCodeModal';
+import { EquipmentCreationModal } from '@/components/equipements/EquipmentCreationModal';
+import { EquipmentEditModal } from '@/components/equipements/EquipmentEditModal';
+import { QRScanner } from '@/components/qr/QRScanner';
 import { CriticalityMatrix } from '@/components/equipements/CriticalityMatrix';
 import { buildEquipmentTree, filterTree, flattenTreeToMachines, countMachinesAndSubAssemblies } from '@/components/equipements/treeUtils';
 
-function QRScannerModal({ open, onClose, onScan }: { open: boolean; onClose: () => void; onScan: (code: string) => void }) {
-  const [scanning, setScanning] = useState(true);
-  const [result, setResult] = useState<string | null>(null);
-  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setScanning(true);
-      setResult(null);
-      setError(false);
-      // Simulate scan after 3 seconds for demo
-      const timer = setTimeout(() => {
-        setScanning(false);
-        const mockCodes = ['PR-001', 'PR-002', 'LQ-001', 'EQ-003'];
-        const code = mockCodes[Math.floor(Math.random() * mockCodes.length)];
-        setResult(code);
-        onScan(code);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [open, onScan]);
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[500] bg-[rgba(10,11,20,0.9)] backdrop-blur-sm"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.25, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
-            className="fixed inset-0 z-[500] flex items-center justify-center p-4 pointer-events-none"
-          >
-            <div className="bg-bg-elevated border border-[rgba(90,94,117,0.3)] rounded-xl shadow-card-hover pointer-events-auto w-full max-w-md overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-[rgba(90,94,117,0.2)]">
-                <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
-                  <ScanLine className="w-5 h-5 text-accent-teal" />
-                  Scanner un QR Code
-                </h3>
-                <button onClick={onClose} className="p-1 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors">
-                  <Plus className="w-4 h-4 rotate-45" />
-                </button>
-              </div>
-
-              <div className="p-6 flex flex-col items-center gap-4">
-                {/* Scanner viewport */}
-                <div className="relative w-72 h-72 rounded-xl border-2 border-accent-teal overflow-hidden bg-black">
-                  {/* Corner brackets */}
-                  <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-accent-teal" />
-                  <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-accent-teal" />
-                  <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-accent-teal" />
-                  <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-accent-teal" />
-
-                  {/* Scanning line */}
-                  {scanning && (
-                    <motion.div
-                      animate={{ top: ['0%', '100%', '0%'] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                      className="absolute left-0 right-0 h-0.5 bg-accent-teal shadow-[0_0_8px_rgba(14,165,233,0.8)]"
-                    />
-                  )}
-
-                  {/* Result overlay */}
-                  <AnimatePresence>
-                    {result && !error && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="absolute inset-0 bg-status-ok/20 flex flex-col items-center justify-center gap-2"
-                      >
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}>
-                          <div className="w-12 h-12 rounded-full bg-status-ok flex items-center justify-center">
-                            <ChevronRight className="w-6 h-6 text-white rotate-[-45deg]" />
-                          </div>
-                        </motion.div>
-                        <p className="text-sm font-semibold text-white">{result}</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <p className="text-sm text-text-secondary text-center">
-                  {scanning ? 'Placez le QR code dans le cadre' : result ? 'QR code reconnu' : 'Scan terminé'}
-                </p>
-
-                {result && (
-                  <div className="flex items-center gap-2 w-full">
-                    <button onClick={onClose} className="flex-1 btn-primary h-9 text-sm">
-                      Voir la fiche
-                    </button>
-                    <button
-                      onClick={() => {
-                        setScanning(true);
-                        setResult(null);
-                      }}
-                      className="flex-1 btn-ghost h-9 text-sm"
-                    >
-                      Réessayer
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
 
 export default function Equipements() {
-  const { workOrders, preventivePlans } = useDataStore();
+  const workOrders: any[] = [];
+  const preventivePlans: any[] = [];
   const { equipment, fetchEquipment } = useEquipmentStore();
 
   useEffect(() => {
@@ -155,6 +43,9 @@ export default function Equipements() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrModalEq, setQrModalEq] = useState<Equipment | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editEq, setEditEq] = useState<Equipment | null>(null);
   const [treeExpandedIds, setTreeExpandedIds] = useState<Set<string>>(new Set(['site-1']));
   const [treePaneExpanded, setTreePaneExpanded] = useState(true);
 
@@ -182,14 +73,37 @@ export default function Equipements() {
 
   const handleNewBT = useCallback((eq: Equipment) => {
     // In real app, would open a modal or navigate to BT creation
-    alert(`Créer un BT pour ${(eq as Equipment).name} (placeholder)`);
+    console.log(`Créer un BT pour ${(eq as Equipment).name}`);
+  }, []);
+
+  const handleEdit = useCallback((eq: Equipment) => {
+    setEditEq(eq);
+    setEditModalOpen(true);
+  }, []);
+
+  const handleDelete = useCallback((eq: Equipment) => {
+    if (window.confirm(`Supprimer l'équipement « ${eq.name} » (${eq.code}) ? Cette action est irréversible.`)) {
+      useEquipmentStore.getState().deleteEquipment(eq.id).then((ok) => {
+        if (ok) {
+          toast.success(`Équipement « ${eq.code} » supprimé`);
+          setDetailOpen(false);
+          setSelectedEq(null);
+        } else {
+          toast.error('Erreur lors de la suppression');
+        }
+      });
+    }
   }, []);
 
   const handleScanResult = useCallback((code: string) => {
+    setScannerOpen(false);
     const eq = equipment.find((e) => e.qrCode === code || e.code === code);
     if (eq) {
       setSelectedEq(eq);
       setDetailOpen(true);
+      toast.success(`Équipement trouvé : ${eq.code}`, { description: eq.name });
+    } else {
+      toast.error(`Aucun équipement trouvé pour la référence « ${code} »`);
     }
   }, [equipment]);
 
@@ -238,7 +152,7 @@ export default function Equipements() {
           onChange={setFilters}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onNewEquipment={() => alert('Nouvel équipement (placeholder)')}
+          onNewEquipment={() => setCreateModalOpen(true)}
           onScanQR={() => setScannerOpen(true)}
           resultCount={resultCount}
         />
@@ -356,6 +270,8 @@ export default function Equipements() {
                   }}
                   onShowQR={handleShowQR}
                   onNewBT={handleNewBT}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
                 />
               </motion.div>
             ) : viewMode === 'grid' ? (
@@ -409,11 +325,25 @@ export default function Equipements() {
         onClose={() => setQrModalOpen(false)}
       />
 
-      {/* QR Scanner Modal */}
-      <QRScannerModal
-        open={scannerOpen}
-        onClose={() => setScannerOpen(false)}
-        onScan={handleScanResult}
+      {/* QR Scanner */}
+      {scannerOpen && (
+        <QRScanner
+          onScan={handleScanResult}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
+
+      <EquipmentCreationModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
+      <EquipmentEditModal
+        open={editModalOpen}
+        equipment={editEq}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditEq(null);
+        }}
       />
     </div>
   );

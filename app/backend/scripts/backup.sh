@@ -1,15 +1,15 @@
 #!/bin/bash
 # =============================================================================
-# Script de backup quotidien — GMAO Ramondin
+# Script de backup quotidien — GMAO Simply GMAO
 # =============================================================================
-# A executer via cron : 0 2 * * * /opt/ramondin-gmao/scripts/backup.sh
+# A executer via cron : 0 2 * * * /opt/simply-gmao-gmao/scripts/backup.sh
 # =============================================================================
 
 set -e
 
-BACKUP_DIR="/opt/ramondin-gmao/backups"
-UPLOADS_DIR="/opt/ramondin-gmao/uploads"
-COMPOSE_FILE="/opt/ramondin-gmao/docker-compose.yml"
+BACKUP_DIR="/opt/simply-gmao-gmao/backups"
+UPLOADS_DIR="/opt/simply-gmao-gmao/uploads"
+COMPOSE_FILE="/opt/simply-gmao-gmao/docker-compose.yml"
 DATE=$(date +%Y%m%d_%H%M%S)
 RETENTION_DAYS=30
 
@@ -23,7 +23,7 @@ mkdir -p "${BACKUP_DIR}"
 # ---------------------------------------------------------------------------
 echo "[BACKUP] Dump PostgreSQL..."
 docker-compose -f "${COMPOSE_FILE}" exec -T postgres pg_dump \
-  -U gmao -d ramondin_gmao -Fc \
+  -U gmao -d simply-gmao_gmao -Fc \
   > "${BACKUP_DIR}/db_backup_${DATE}.dump"
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ tar czf "${BACKUP_DIR}/uploads_backup_${DATE}.tar.gz" -C "${UPLOADS_DIR}" .
 # 3. Backup docker-compose + .env
 # ---------------------------------------------------------------------------
 echo "[BACKUP] Backup configuration..."
-tar czf "${BACKUP_DIR}/config_backup_${DATE}.tar.gz" -C /opt/ramondin-gmao \
+tar czf "${BACKUP_DIR}/config_backup_${DATE}.tar.gz" -C /opt/simply-gmao-gmao \
   docker-compose.yml .env nginx/
 
 # ---------------------------------------------------------------------------

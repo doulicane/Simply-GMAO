@@ -1,0 +1,150 @@
+{
+  "app": {
+    "name": "GMAO Simply GMAO",
+    "tagline": "Maintenance industrielle"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "equipments": "Équipements",
+    "workOrders": "Bons de Travail",
+    "planning": "Planification",
+    "stocks": "Stocks",
+    "preventive": "Maintenance Préventive",
+    "tickets": "Tickets",
+    "import": "Import",
+    "operatorPortal": "Portail Opérateur",
+    "magasinierSpace": "Espace Magasinier"
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "email": "Email",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "invalidCredentials": "Email ou mot de passe incorrect",
+    "sessionExpired": "Votre session a expiré"
+  },
+  "common": {
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "create": "Créer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "yes": "Oui",
+    "no": "Non",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "confirm": "Confirmer",
+    "export": "Exporter",
+    "print": "Imprimer",
+    "download": "Télécharger",
+    "details": "Détails",
+    "status": "Statut",
+    "priority": "Priorité",
+    "type": "Type",
+    "date": "Date",
+    "technician": "Technicien",
+    "operator": "Opérateur",
+    "responsible": "Responsable"
+  },
+  "equipment": {
+    "title": "Équipements",
+    "code": "Code",
+    "name": "Nom",
+    "type": "Type",
+    "status": "Statut",
+    "criticality": "Criticité",
+    "location": "Localisation",
+    "manufacturer": "Fabricant",
+    "serialNumber": "N° série",
+    "counter": "Compteur",
+    "subAssemblies": "Sous-ensembles",
+    "documents": "Documents",
+    "history": "Historique BT",
+    "preventive": "Maint. Préventive",
+    "newWO": "Nouveau BT",
+    "exportPDF": "Exporter PDF",
+    "qrCode": "QR Code"
+  },
+  "workOrder": {
+    "title": "Bons de Travail",
+    "number": "N° BT",
+    "create": "Créer un BT",
+    "duplicate": "Dupliquer",
+    "status": {
+      "CREE": "Créé",
+      "PLANIFIE": "Planifié",
+      "EN_COURS": "En cours",
+      "TERMINE": "Terminé",
+      "CLOTURE": "Clôturé"
+    },
+    "type": {
+      "CORRECTIF": "Correctif",
+      "PREVENTIF": "Préventif",
+      "CONDITIONNEL": "Conditionnel",
+      "AMELIORATION": "Amélioration",
+      "SECURITE": "Sécurité"
+    },
+    "priority": {
+      "URGENTE": "Urgente",
+      "HAUTE": "Haute",
+      "MOYENNE": "Moyenne",
+      "BASSE": "Basse"
+    },
+    "start": "Démarrer",
+    "complete": "Terminer",
+    "close": "Clôturer",
+    "reopen": "Rouvrir",
+    "assign": "Affecter",
+    "duration": "Durée",
+    "parts": "Pièces consommées",
+    "photos": "Photos",
+    "comments": "Commentaires",
+    "cause": "Cause panne",
+    "actions": "Actions réalisées"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Vue d'ensemble de la maintenance",
+    "availability": "Disponibilité",
+    "mttr": "Temps Moyen de Réparation",
+    "mtbf": "Temps Moyen Entre Pannes",
+    "openWO": "BT en cours",
+    "preventiveCompliance": "Respect plan préventif",
+    "monthlyReport": "Rapport mensuel",
+    "atexCompliance": "Conformité ATEX"
+  },
+  "stock": {
+    "title": "Stocks",
+    "code": "Code",
+    "name": "Nom",
+    "family": "Famille",
+    "quantity": "Quantité",
+    "minStock": "Stock minimum",
+    "location": "Emplacement",
+    "lowStockAlert": "Alerte stock bas"
+  },
+  "operator": {
+    "declareBreakdown": "Déclarer une panne",
+    "scanQR": "Scanner un QR Code",
+    "myRequests": "Mes demandes",
+    "breakdownType": "Type de panne",
+    "description": "Description",
+    "photo": "Ajouter une photo",
+    "submit": "Envoyer la demande",
+    "requestSent": "Demande envoyée avec succès",
+    "kioskMode": "Mode kiosque",
+    "exitKiosk": "Quitter le mode kiosque",
+    "productionResumed": "Reprise production confirmée"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Tout marquer comme lu",
+    "empty": "Aucune notification"
+  }
+}

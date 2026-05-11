@@ -3,10 +3,12 @@
  * Routes Upload de fichiers
  * =============================================================================
  * Endpoints :
- *   POST /api/upload — Upload d'un fichier (documents, photos)
+ *   POST /api/upload      — Upload d'un document (PDF, images)
+ *   POST /api/upload/photo — Upload d'une photo (images uniquement, 5 Mo max)
  *
- * Stockage local dans /data/uploads avec organisation par type et date.
- * Multer est configure pour rejeter les fichiers trop volumineux.
+ * Stockage local avec organisation /uploads/YYYY/MM/UUID.ext.
+ * Multer configure avec whitelist MIME types strict, renommage UUID v4,
+ * et limite de taille par type.
  * =============================================================================
  */
 
@@ -14,6 +16,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { Role } from '@prisma/client';
 import { authenticate, authorize } from '../middleware/auth';
@@ -21,14 +24,16 @@ import { validate } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import { prisma } from '../config/database';
+import { env } from '../config/env';
 
 const router = Router();
 
 // ---------------------------------------------------------------------------
 // Configuration du repertoire d'upload
 // ---------------------------------------------------------------------------
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.resolve(__dirname, '../../uploads');
-const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE ?? 20 * 1024 * 1024); // 20 Mo
+const UPLOAD_DIR = env.UPLOAD_DIR;
+const MAX_DOC_SIZE = 50 * 1024 * 1024; // 50 Mo pour documents techniques
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 Mo
 
 // Sous-repertoires par type
 const SUBDIRS = {
@@ -46,6 +51,36 @@ Object.values(SUBDIRS).forEach((dir) => {
 });
 
 // ---------------------------------------------------------------------------
+// Helpers de validation de type MIME
+// ---------------------------------------------------------------------------
+const ALLOWED_DOCUMENT_MIMES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+const ALLOWED_PHOTO_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+function isAllowedMime(mimetype: string, allowed: Set<string>): boolean {
+  return allowed.has(mimetype);
+}
+
+function getExtensionFromMime(mimetype: string): string {
+  const map: Record<string, string> = {
+    'application/pdf': '.pdf',
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  };
+  return map[mimetype] || '';
+}
+
+// ---------------------------------------------------------------------------
 // Configuration Multer (stockage disque)
 // ---------------------------------------------------------------------------
 function createStorage(subdir: string) {
@@ -60,42 +95,47 @@ function createStorage(subdir: string) {
       cb(null, dest);
     },
     filename: (_req, file, cb) => {
-      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      const ext = path.extname(file.originalname);
-      cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+      // Renommage avec UUID v4 + extension derivee du MIME type
+      const ext = getExtensionFromMime(file.mimetype);
+      if (!ext) {
+        return cb(new AppError('Type de fichier non supporte', 400) as any, '');
+      }
+      cb(null, `${randomUUID()}${ext}`);
     },
   });
 }
 
 // ---------------------------------------------------------------------------
-// Filtre de type de fichier
+// Filtre de type de fichier strict (whitelist MIME types)
 // ---------------------------------------------------------------------------
-const fileFilter = (allowedTypes: string[]) => {
+function createFileFilter(allowedMimes: Set<string>) {
   return (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const mime = file.mimetype;
-    const isAllowed = allowedTypes.some((type) => mime.startsWith(type) || ext.includes(type));
-    if (isAllowed) {
+    if (isAllowedMime(file.mimetype, allowedMimes)) {
       cb(null, true);
     } else {
-      cb(new AppError(`Type de fichier non autorise : ${mime}`, 400) as any);
+      cb(
+        new AppError(
+          `Type de fichier non autorise : ${file.mimetype}. Types acceptes : ${[...allowedMimes].join(', ')}`,
+          400
+        ) as any
+      );
     }
   };
-};
+}
 
 // ---------------------------------------------------------------------------
 // Middlewares Multer pre-configures
 // ---------------------------------------------------------------------------
 const uploadDocument = multer({
   storage: createStorage(SUBDIRS.documents),
-  limits: { fileSize: MAX_FILE_SIZE },
-  fileFilter: fileFilter(['application/pdf', 'image/', '.pdf', '.jpg', '.jpeg', '.png']),
+  limits: { fileSize: MAX_DOC_SIZE },
+  fileFilter: createFileFilter(ALLOWED_DOCUMENT_MIMES),
 });
 
 const uploadPhoto = multer({
   storage: createStorage(SUBDIRS.photos),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 Mo max pour les photos
-  fileFilter: fileFilter(['image/', '.jpg', '.jpeg', '.png', '.webp']),
+  limits: { fileSize: MAX_PHOTO_SIZE },
+  fileFilter: createFileFilter(ALLOWED_PHOTO_MIMES),
 });
 
 // ---------------------------------------------------------------------------

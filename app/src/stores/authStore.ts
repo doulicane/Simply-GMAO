@@ -1,66 +1,17 @@
 import { create } from 'zustand';
-import { isMockMode } from './mockMode';
+import { API_URL } from '@/lib/config';
 import type { User, UserRole } from '@/types';
-
-const API_URL = 'http://localhost:3001/api';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   accessToken: string | null;
   login: (email: string, password: string) => Promise<boolean>;
-  loginAsRole: (role: UserRole) => void;
   fetchMe: () => Promise<void>;
   logout: () => void;
   hasRole: (role: UserRole | UserRole[]) => boolean;
   canAccess: (allowedRoles: UserRole[]) => boolean;
 }
-
-/* ------------------------------------------------------------------ */
-//  Mock users (mode démo rapide — boutons sur l'écran de login)
-/* ------------------------------------------------------------------ */
-const MOCK_USERS: Record<string, User & { password: string }> = {
-  manager: {
-    id: 'USR-001',
-    name: 'Pierre Durand',
-    username: 'manager',
-    password: 'manager',
-    role: 'responsable',
-    email: 'p.durand@ramondin.fr',
-  },
-  tech: {
-    id: 'USR-002',
-    name: 'Jean Martin',
-    username: 'tech',
-    password: 'tech',
-    role: 'technicien',
-    email: 'j.martin@ramondin.fr',
-  },
-  op: {
-    id: 'USR-003',
-    name: 'Marie Lefebvre',
-    username: 'op',
-    password: 'op',
-    role: 'operateur',
-    email: 'm.lefebvre@ramondin.fr',
-  },
-  mag: {
-    id: 'USR-004',
-    name: 'Luc Bernard',
-    username: 'mag',
-    password: 'mag',
-    role: 'magasinier',
-    email: 'l.bernard@ramondin.fr',
-  },
-  hse: {
-    id: 'USR-005',
-    name: 'Sophie Moreau',
-    username: 'hse',
-    password: 'hse',
-    role: 'hse',
-    email: 's.moreau@ramondin.fr',
-  },
-};
 
 /* ------------------------------------------------------------------ */
 //  Helpers
@@ -94,69 +45,42 @@ function mapBackendUser(u: any): User {
 //  Store
 /* ------------------------------------------------------------------ */
 
-// Restore mock user from localStorage on init
-const storedMock = localStorage.getItem('mockUser');
-const initialMockUser = storedMock ? JSON.parse(storedMock) : null;
+const storedAccessToken = localStorage.getItem('accessToken');
+const storedUser = localStorage.getItem('user');
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: initialMockUser,
-  isAuthenticated: !!initialMockUser,
-  accessToken: null,
+  user: storedUser ? JSON.parse(storedUser) : null,
+  isAuthenticated: !!storedAccessToken,
+  accessToken: storedAccessToken,
 
   login: async (email: string, password: string) => {
-    if (!isMockMode()) {
-      // Essayer d'abord le backend réel
-      try {
-        const res = await fetch(`${API_URL}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const { accessToken, refreshToken, user } = json.data;
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('accessToken', accessToken);
+        const mappedUser = mapBackendUser(user);
+        localStorage.setItem('user', JSON.stringify(mappedUser));
+        set({
+          accessToken,
+          user: mappedUser,
+          isAuthenticated: true,
         });
-        const json = await res.json();
-        if (json.success) {
-          const { accessToken, refreshToken, user } = json.data;
-          localStorage.setItem('refreshToken', refreshToken);
-          set({
-            accessToken,
-            user: mapBackendUser(user),
-            isAuthenticated: true,
-          });
-          return true;
-        }
-      } catch {
-        // Si le backend est injoignable, fallback sur le mock
+        return true;
       }
-    }
-
-    // Fallback mock (ou mock mode direct)
-    const mockUser = MOCK_USERS[email.toLowerCase()];
-    if (mockUser && mockUser.password === password) {
-      const { password: _, ...user } = mockUser;
-      set({ user, isAuthenticated: true, accessToken: null });
-      return true;
+    } catch {
+      // ignore
     }
     return false;
   },
 
-  loginAsRole: (role: UserRole) => {
-    const roleToUser: Record<UserRole, string> = {
-      responsable: 'manager',
-      technicien: 'tech',
-      operateur: 'op',
-      magasinier: 'mag',
-      hse: 'hse',
-    };
-    const username = roleToUser[role];
-    const mockUser = MOCK_USERS[username];
-    if (mockUser) {
-      const { password: _, ...user } = mockUser;
-      localStorage.setItem('mockUser', JSON.stringify(user));
-      set({ user, isAuthenticated: true, accessToken: null });
-    }
-  },
-
   fetchMe: async () => {
-    if (isMockMode()) return;
     const token = get().accessToken;
     if (!token) return;
     try {
@@ -168,16 +92,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       const json = await res.json();
       if (json.success) {
-        set({ user: mapBackendUser(json.data) });
+        const mappedUser = mapBackendUser(json.data);
+        localStorage.setItem('user', JSON.stringify(mappedUser));
+        set({ user: mappedUser });
       }
     } catch {
       // ignore
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        await fetch(`${API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+      } catch {
+        // ignore — la deconnexion se fait quand meme cote client
+      }
+    }
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('mockUser');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
     set({ user: null, isAuthenticated: false, accessToken: null });
   },
 

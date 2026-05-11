@@ -6,11 +6,13 @@ import {
   AlertOctagon, ShieldAlert, Cog, Droplets, Paintbrush,
   Package, Flame, Wind, ChevronRight, Camera, Clock,
   CheckCircle, X, WifiOff, Wifi, TrendingUp, LogOut,
+  Monitor,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useEquipmentStore } from '@/stores/equipmentStore';
 import { useWorkOrderStore } from '@/stores/workOrderStore';
 import { useTicketStore } from '@/stores/ticketStore';
+import { useKioskMode } from '@/hooks/useKioskMode';
 import { cn } from '@/lib/utils';
 import type { Equipment, EquipmentType, Priority } from '@/types';
 import {
@@ -107,7 +109,7 @@ function getPriorityColor(p: Priority) {
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function MinimalHeader({ onBack, title, onLogout, showBack }: { onBack: () => void; title: string; onLogout: () => void; showBack: boolean }) {
+function MinimalHeader({ onBack, title, onLogout, showBack, onKiosk, kiosk }: { onBack: () => void; title: string; onLogout: () => void; showBack: boolean; onKiosk?: () => void; kiosk?: boolean }) {
   return (
     <header className="fixed top-0 left-0 right-0 h-14 z-50 bg-bg-elevated/95 backdrop-blur-md border-b border-[rgba(90,94,117,0.2)]">
       <div className="flex items-center justify-between h-full px-4">
@@ -125,7 +127,16 @@ function MinimalHeader({ onBack, title, onLogout, showBack }: { onBack: () => vo
         <h1 className="text-base font-semibold text-text-primary tracking-tight">
           {title}
         </h1>
-        <div className="w-20 flex justify-end">
+        <div className="w-20 flex justify-end gap-1">
+          {onKiosk && (
+            <button
+              onClick={onKiosk}
+              className={cn('p-2 rounded-md transition-colors', kiosk ? 'bg-accent-teal/20 text-accent-teal' : 'hover:bg-bg-hover text-text-muted hover:text-text-primary')}
+              title={kiosk ? 'Quitter le mode kiosque' : 'Mode kiosque'}
+            >
+              <Monitor className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onLogout}
             className="p-2 rounded-md hover:bg-bg-hover text-status-critical hover:text-status-critical transition-colors"
@@ -172,15 +183,10 @@ function QRScannerOverlay({
     setScanning(true);
     setError(false);
     setTimeout(() => {
-      const eq = equipment[2]; // Presse #3 — the one in breakdown for demo
-      if (eq) {
-        onSuccess(eq);
-      } else {
-        setError(true);
-        setScanning(false);
-      }
+      setError(true);
+      setScanning(false);
     }, 2000);
-  }, [equipment, onSuccess]);
+  }, []);
 
   if (!open) return null;
 
@@ -338,11 +344,25 @@ export default function PortailOperateur() {
   const { equipment, fetchEquipment } = useEquipmentStore();
   const { workOrders, fetchWorkOrders } = useWorkOrderStore();
   const { createTicket } = useTicketStore();
+  const { kiosk, enterKiosk, exitKiosk } = useKioskMode();
 
   useEffect(() => {
     fetchEquipment();
     fetchWorkOrders();
   }, [fetchEquipment, fetchWorkOrders]);
+
+  useEffect(() => {
+    const handler = () => {
+      setStep('scan');
+      setSelectedZone(null);
+      setSelectedEquipment(null);
+      setPanneType(null);
+      setDescription('');
+      setPhotos([]);
+    };
+    window.addEventListener('kiosk:reset' as any, handler);
+    return () => window.removeEventListener('kiosk:reset' as any, handler);
+  }, []);
 
   const [step, setStep] = useState<Step>('scan');
   const [selectedZone, setSelectedZone] = useState<EquipmentType | null>(null);
@@ -439,7 +459,7 @@ export default function PortailOperateur() {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-bg-primary overflow-hidden">
-      <MinimalHeader onBack={handleBack} title="PORTAIL OPÉRATEUR" onLogout={handleLogout} showBack={step !== 'scan'} />
+      <MinimalHeader onBack={handleBack} title="PORTAIL OPÉRATEUR" onLogout={handleLogout} showBack={step !== 'scan'} onKiosk={kiosk ? exitKiosk : enterKiosk} kiosk={kiosk} />
 
       <main className="flex-1 pt-14 overflow-y-auto">
         <OfflineBanner queueCount={offlineQueue.length} />

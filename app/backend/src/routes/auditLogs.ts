@@ -11,6 +11,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 import { Role } from '@prisma/client';
+import { paginate } from '../utils/pagination';
 
 const router = Router();
 
@@ -27,24 +28,21 @@ router.get(
       if (entityType) where.entityType = entityType;
       if (entityId) where.entityId = entityId;
 
-      const skip = (Number(page) - 1) * Number(limit);
-
-      const [items, total] = await Promise.all([
-        prisma.auditLog.findMany({
-          where,
-          skip,
-          take: Number(limit),
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: { select: { id: true, firstName: true, lastName: true, email: true } },
-          },
-        }),
-        prisma.auditLog.count({ where }),
-      ]);
+      const result = await paginate({
+        page: Number(page),
+        limit: Number(limit),
+        model: prisma.auditLog,
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        },
+      });
 
       res.json({
         success: true,
-        data: { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) },
+        data: result.data,
+        pagination: result.pagination,
       });
     } catch (err) {
       next(err);
