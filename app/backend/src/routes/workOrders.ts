@@ -27,6 +27,7 @@ import {
 } from '@prisma/client';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
+import { sanitizeString, sanitizeOptionalString } from '../utils/sanitize';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../config/database';
 import { getOrSetCache, invalidateCache } from '../utils/cache';
@@ -88,8 +89,8 @@ export const allowedTransitions: Record<
 // Schemas
 // ---------------------------------------------------------------------------
 const createWOSchema = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
+  title: z.string().min(1).max(200).transform(sanitizeString),
+  description: z.string().max(2000).optional().transform(sanitizeOptionalString),
   equipmentId: z.string().uuid(),
   type: z.nativeEnum(WorkOrderType),
   priority: z.nativeEnum(Priority),
@@ -103,7 +104,7 @@ const updateWOSchema = createWOSchema.partial().extend({
 
 const statusUpdateSchema = z.object({
   status: z.nativeEnum(WorkOrderStatus),
-  commentaire: z.string().optional(),
+  commentaire: z.string().optional().transform(sanitizeOptionalString),
 });
 
 const assignSchema = z.object({
@@ -112,11 +113,11 @@ const assignSchema = z.object({
 });
 
 const completeSchema = z.object({
-  causePanne: z.string().max(200).optional().nullable(),
-  actionsRealisees: z.string().max(2000).optional().nullable(),
-  piecesConsommees: z.string().max(2000).optional().nullable(),
+  causePanne: z.string().max(200).optional().nullable().transform(sanitizeOptionalString),
+  actionsRealisees: z.string().max(2000).optional().nullable().transform(sanitizeOptionalString),
+  piecesConsommees: z.string().max(2000).optional().nullable().transform(sanitizeOptionalString),
   dureeMinutes: z.coerce.number().min(0).optional(),
-  commentaireCloture: z.string().max(2000).optional().nullable(),
+  commentaireCloture: z.string().max(2000).optional().nullable().transform(sanitizeOptionalString),
   photos: z.array(z.string()).optional(),
 });
 
@@ -400,7 +401,7 @@ router.post(
 // POST /api/work-orders/:id/reopen — Rouvrir un BT cloture
 // ---------------------------------------------------------------------------
 const reopenSchema = z.object({
-  reason: z.string().max(500).optional(),
+  reason: z.string().max(500).optional().transform(sanitizeOptionalString),
 });
 
 router.post(
@@ -459,7 +460,7 @@ router.post(
 const consumePartsSchema = z.object({
   stockItemId: z.string().uuid(),
   quantite: z.coerce.number().min(0.01),
-  commentaire: z.string().max(500).optional().nullable(),
+  commentaire: z.string().max(500).optional().nullable().transform(sanitizeOptionalString),
 });
 
 router.post(

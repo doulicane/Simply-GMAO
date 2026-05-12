@@ -45,7 +45,7 @@ export function ChecklistExecutor({ items, onSubmit, readOnly, initialValues }: 
 
         return (
           <div
-            key={idx}
+            key={item.label}
             className={cn(
               'p-3 rounded-lg border transition-colors',
               isMissing ? 'border-red-300 bg-red-50/50 dark:bg-red-950/20' : 'border-border bg-card'

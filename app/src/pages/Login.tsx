@@ -127,6 +127,7 @@ export default function Login() {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-simply-gmao-warm-gray" />
               <input
                 {...register('username')}
+                autoFocus
                 placeholder="Votre identifiant"
                 autoComplete="username"
                 className={cn(

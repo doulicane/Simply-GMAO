@@ -511,7 +511,7 @@ function PMTaskDrawer({
 
   if (!plan) return null;
 
-  const completedCount = plan.checklist.filter((_, i) => checklistState[i] || false).length;
+  const completedCount = plan.checklist.filter((item) => checklistState[item] || false).length;
   const progress = plan.checklist.length > 0 ? Math.round((completedCount / plan.checklist.length) * 100) : 0;
   const days = getDaysUntil(plan.nextDueDate);
 
@@ -606,12 +606,12 @@ function PMTaskDrawer({
                   />
                 </div>
                 <div className="space-y-2">
-                  {plan.checklist.map((item, idx) => {
-                    const checked = checklistState[idx] || false;
+                  {plan.checklist.map((item) => {
+                    const checked = checklistState[item] || false;
                     return (
                       <div
-                        key={idx}
-                        onClick={() => setChecklistState((s) => ({ ...s, [idx]: !checked }))}
+                        key={item}
+                        onClick={() => setChecklistState((s) => ({ ...s, [item]: !checked }))}
                         className={cn(
                           'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border',
                           checked

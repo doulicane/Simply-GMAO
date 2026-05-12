@@ -246,7 +246,7 @@ export default function EspaceMagasinier() {
                 </div>
               ) : (
                 movements.map((m, idx) => (
-                  <MovementRow key={idx} {...m} />
+                  <MovementRow key={m.id ?? `mvt-${idx}`} {...m} />
                 ))
               )}
             </div>

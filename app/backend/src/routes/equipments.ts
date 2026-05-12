@@ -19,6 +19,7 @@ import { Role, EquipmentStatus, EquipmentCriticality } from '@prisma/client';
 import { prisma } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
+import { sanitizeString, sanitizeOptionalString } from '../utils/sanitize';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import { paginate } from '../utils/pagination';
@@ -34,19 +35,19 @@ const router = Router();
 // ---------------------------------------------------------------------------
 const createEquipmentSchema = z.object({
   code: z.string().min(3).max(20),
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).transform(sanitizeString),
   type: z.string().min(1).max(50),
   criticality: z.nativeEnum(EquipmentCriticality),
-  localisation: z.string().max(100).optional(),
-  ligneId: z.string().uuid().optional(),
+  localisation: z.string().max(100).optional().transform(sanitizeOptionalString),
+  ligneId: z.string().uuid().optional().nullable(),
   contactAlimentaire: z.boolean().default(false),
   dateAchat: z.coerce.date().optional().nullable(),
-  numSerie: z.string().max(50).optional().nullable(),
-  constructeur: z.string().max(100).optional().nullable(),
+  numSerie: z.string().max(50).optional().nullable().transform(sanitizeOptionalString),
+  constructeur: z.string().max(100).optional().nullable().transform(sanitizeOptionalString),
   dateMiseService: z.coerce.date().optional().nullable(),
   statut: z.nativeEnum(EquipmentStatus).default(EquipmentStatus.EN_SERVICE),
   compteurActuel: z.coerce.number().default(0),
-  compteurUnite: z.string().max(20).optional().nullable(),
+  compteurUnite: z.string().max(20).optional().nullable().transform(sanitizeOptionalString),
 });
 
 const updateEquipmentSchema = createEquipmentSchema.partial();

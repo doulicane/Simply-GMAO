@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { mockAuthApi, mockDashboardApi } from './mocks/api';
+import { mockAuthApi, mockDashboardApi, mockTicketsApi } from './mocks/api';
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await mockAuthApi(page);
     await mockDashboardApi(page);
+    await mockTicketsApi(page);
   });
 
   test('redirection vers login sans session', async ({ page }) => {

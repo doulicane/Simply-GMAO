@@ -21,7 +21,7 @@ const WORK_ORDER_TYPES: WorkOrderType[] = ['corrective', 'preventive', 'improvem
 const PRIORITIES: Priority[] = ['P1', 'P2', 'P3', 'P4'];
 
 export function CreationModal({ open, onClose, initialStatus = 'draft' }: CreationModalProps) {
-  const { data: equipment = [] } = useEquipments();
+  const { data: equipment = [] } = useEquipments(undefined, open);
   const createWorkOrder = useCreateWorkOrder();
   const { user } = useAuthStore();
   const [step, setStep] = useState(1);

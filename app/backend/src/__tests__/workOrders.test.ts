@@ -71,8 +71,8 @@ describe('WorkOrder Routes', () => {
     expect(res.body.data.title).toBe('Maintenance');
   });
 
-  it.skip('PUT /api/work-orders/:id/status — change le statut (TODO: mock service)', async () => {
-    mockPrisma.workOrder.findUnique.mockResolvedValue({ id: 'wo-1', status: 'CREE' });
+  it('PUT /api/work-orders/:id/status — change le statut', async () => {
+    mockPrisma.workOrder.findUnique.mockResolvedValue({ id: 'wo-1', status: 'PLANIFIE' });
     mockPrisma.workOrder.update.mockResolvedValue({
       id: 'wo-1', numero: 'BT-001', title: 'Panne presse', status: 'EN_COURS', priority: 'HAUTE',
     });

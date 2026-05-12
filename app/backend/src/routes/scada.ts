@@ -23,12 +23,12 @@ import { emitToRole } from '../socket';
 const router = Router();
 
 const SCADA_API_KEY = process.env.SCADA_API_KEY;
-if (!SCADA_API_KEY) {
-  throw new Error('[SCADA] SCADA_API_KEY est obligatoire. L\'application ne peut pas demarrer.');
-}
 
 // Middleware d'authentification API key
 function scadaAuth(req: Request, _res: Response, next: NextFunction): void {
+  if (!SCADA_API_KEY) {
+    return next(new AppError('Route SCADA non configuree', 503));
+  }
   const key = req.headers['x-api-key'] as string | undefined;
   if (!key || key !== SCADA_API_KEY) {
     return next(new AppError('API key invalide', 401));

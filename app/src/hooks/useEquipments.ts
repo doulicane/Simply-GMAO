@@ -1,5 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI } from '@/lib/api';
+import { cacheEquipments, db } from '@/lib/db';
+import { useOfflineMutation } from './useOfflineMutation';
 import type { Equipment, EquipmentStatus, EquipmentType, Criticality } from '@/types';
 
 const mapStatus = (s: string): EquipmentStatus => {
@@ -86,14 +88,21 @@ const mapBackendEquipment = (eq: BackendEquipment): Equipment => ({
 //  Hooks
 /* ------------------------------------------------------------------ */
 
-export function useEquipments(filters?: Record<string, string>) {
+export function useEquipments(filters?: Record<string, string>, enabled = true) {
   const params = new URLSearchParams({ ...filters, limit: '100' });
   return useQuery({
     queryKey: ['equipments', filters],
+    enabled,
     queryFn: async () => {
+      if (!navigator.onLine) {
+        const cached = await db.equipments.toArray();
+        if (cached.length > 0) return cached.map(mapBackendEquipment) as Equipment[];
+      }
       const json = await fetchAPI(`/equipments?${params}`);
       const rawItems = Array.isArray(json.data) ? json.data : (json.data?.items ?? []);
-      return rawItems.map(mapBackendEquipment) as Equipment[];
+      const mapped = rawItems.map(mapBackendEquipment) as Equipment[];
+      await cacheEquipments(rawItems);
+      return mapped;
     },
   });
 }
@@ -102,6 +111,10 @@ export function useEquipment(id: string) {
   return useQuery({
     queryKey: ['equipment', id],
     queryFn: async () => {
+      if (!navigator.onLine) {
+        const cached = await db.equipments.get(id);
+        if (cached) return mapBackendEquipment(cached) as Equipment;
+      }
       const json = await fetchAPI(`/equipments/${id}`);
       return mapBackendEquipment(json.data) as Equipment;
     },
@@ -111,40 +124,49 @@ export function useEquipment(id: string) {
 
 export function useCreateEquipment() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => {
-      const json = await fetchAPI('/equipments', { method: 'POST', body: JSON.stringify(data) });
-      return mapBackendEquipment(json.data) as Equipment;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipments'] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/equipments', method: 'POST', entityType: 'equipment' },
+    {
+      mutationFn: async (data: Record<string, unknown>) => {
+        const json = await fetchAPI('/equipments', { method: 'POST', body: JSON.stringify(data) });
+        return mapBackendEquipment(json.data) as Equipment;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      },
+    }
+  );
 }
 
 export function useUpdateEquipment() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
-      const json = await fetchAPI(`/equipments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-      return mapBackendEquipment(json.data) as Equipment;
-    },
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['equipments'] });
-      queryClient.invalidateQueries({ queryKey: ['equipment', id] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/equipments/{id}', method: 'PUT', entityType: 'equipment' },
+    {
+      mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+        const json = await fetchAPI(`/equipments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return mapBackendEquipment(json.data) as Equipment;
+      },
+      onSuccess: (_, { id }) => {
+        queryClient.invalidateQueries({ queryKey: ['equipments'] });
+        queryClient.invalidateQueries({ queryKey: ['equipment', id] });
+      },
+    }
+  );
 }
 
 export function useDeleteEquipment() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await fetchAPI(`/equipments/${id}`, { method: 'DELETE' });
-      return id;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipments'] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/equipments/{id}', method: 'DELETE', entityType: 'equipment' },
+    {
+      mutationFn: async (id: string) => {
+        await fetchAPI(`/equipments/${id}`, { method: 'DELETE' });
+        return id;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      },
+    }
+  );
 }

@@ -23,6 +23,7 @@ import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } fro
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import { paginate } from '../utils/pagination';
+import { sanitizeString, sanitizeOptionalString } from '../utils/sanitize';
 import QRCode from 'qrcode';
 
 const router = Router();
@@ -32,17 +33,17 @@ const router = Router();
 // ---------------------------------------------------------------------------
 const createStockItemSchema = z.object({
   code: z.string().min(1).max(20),
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).transform(sanitizeString),
   famille: z.string().min(1).max(50),
-  sousFamille: z.string().max(50).optional().nullable(),
-  designation: z.string().max(200).optional().nullable(),
+  sousFamille: z.string().max(50).optional().nullable().transform(sanitizeOptionalString),
+  designation: z.string().max(200).optional().nullable().transform(sanitizeOptionalString),
   quantite: z.coerce.number().min(0).default(0),
   stockMinimum: z.coerce.number().min(0),
   stockMaximum: z.coerce.number().optional().nullable(),
-  localisation: z.string().max(100).optional().nullable(),
-  unite: z.string().max(20).optional().nullable(),
+  localisation: z.string().max(100).optional().nullable().transform(sanitizeOptionalString),
+  unite: z.string().max(20).optional().nullable().transform(sanitizeOptionalString),
   prixUnitaire: z.coerce.number().min(0).optional().nullable(),
-  fournisseur: z.string().max(100).optional().nullable(),
+  fournisseur: z.string().max(100).optional().nullable().transform(sanitizeOptionalString),
 });
 
 const updateStockItemSchema = createStockItemSchema.partial();
@@ -58,7 +59,7 @@ const movementSchema = z.object({
   type: z.nativeEnum(StockMovementType),
   quantite: z.coerce.number().min(0),
   workOrderId: z.string().uuid().optional().nullable(),
-  commentaire: z.string().max(500).optional().nullable(),
+  commentaire: z.string().max(500).optional().nullable().transform(sanitizeOptionalString),
 });
 
 // ---------------------------------------------------------------------------

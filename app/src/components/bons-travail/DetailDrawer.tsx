@@ -265,7 +265,7 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
                       <tbody>
                         {workOrder.partsUsed.map((part, idx) => (
                           <tr
-                            key={idx}
+                            key={`${part.partId}-${idx}`}
                             className="border-b border-[rgba(90,94,117,0.1)] hover:bg-bg-hover"
                           >
                             <td className="px-3 py-2.5 font-mono text-[12px] text-accent-teal">{part.partId}</td>

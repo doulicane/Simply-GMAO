@@ -16,6 +16,7 @@ import { paginate } from '../utils/pagination';
 import { generateUniqueBTNumber, generateUniqueTicketNumber } from '../utils/generators';
 import { AppError } from '../middleware/errorHandler';
 import { Role, TicketStatus, Priority, WorkOrderType, WorkOrderStatus } from '@prisma/client';
+import { sanitizeString, sanitizeOptionalString } from '../utils/sanitize';
 
 const router = Router();
 
@@ -34,8 +35,8 @@ const asyncHandler = (
 // Schémas de validation Zod
 // ---------------------------------------------------------------------------
 const createTicketSchema = z.object({
-  title: z.string().min(3, 'Titre requis (min 3 caracteres)').max(200),
-  description: z.string().max(2000).optional(),
+  title: z.string().min(3, 'Titre requis (min 3 caracteres)').max(200).transform(sanitizeString),
+  description: z.string().max(2000).optional().transform(sanitizeOptionalString),
   equipmentId: z.string().optional(),
   equipmentCode: z.string().optional(),
   priority: z.enum(['URGENTE', 'HAUTE', 'MOYENNE', 'BASSE']).default('MOYENNE'),
@@ -43,12 +44,12 @@ const createTicketSchema = z.object({
 
 const updateStatusSchema = z.object({
   status: z.enum(['EN_ATTENTE', 'EN_COURS', 'RESOLU', 'REJETE', 'CONVERTI_EN_BT']),
-  commentaire: z.string().max(1000).optional(),
+  commentaire: z.string().max(1000).optional().transform(sanitizeOptionalString),
 });
 
 const convertToBTSchema = z.object({
-  title: z.string().min(3).max(200),
-  description: z.string().max(2000).optional(),
+  title: z.string().min(3).max(200).transform(sanitizeString),
+  description: z.string().max(2000).optional().transform(sanitizeOptionalString),
   priority: z.enum(['URGENTE', 'HAUTE', 'MOYENNE', 'BASSE']).default('MOYENNE'),
   technicienId: z.string().uuid().optional(),
 });

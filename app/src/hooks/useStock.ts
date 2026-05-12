@@ -1,5 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI } from '@/lib/api';
+import { cacheStockItems, db } from '@/lib/db';
+import { useOfflineMutation } from './useOfflineMutation';
 import type { StockItem } from '@/types';
 
 export interface StockMovement {
@@ -61,8 +63,13 @@ export function useStockItems(filters?: Record<string, string>) {
   return useQuery({
     queryKey: ['stockItems', filters],
     queryFn: async () => {
+      if (!navigator.onLine) {
+        const cached = await db.stockItems.toArray();
+        if (cached.length > 0) return cached.map(mapBackendStock) as StockItem[];
+      }
       const json = await fetchAPI(`/stock?${params}`);
       const rawItems = Array.isArray(json.data) ? json.data : (json.data?.items ?? []);
+      await cacheStockItems(rawItems);
       return rawItems.map(mapBackendStock) as StockItem[];
     },
   });
@@ -72,6 +79,10 @@ export function useStockItem(id: string) {
   return useQuery({
     queryKey: ['stockItem', id],
     queryFn: async () => {
+      if (!navigator.onLine) {
+        const cached = await db.stockItems.get(id);
+        if (cached) return { ...mapBackendStock(cached), movements: [] } as StockItemDetail;
+      }
       const json = await fetchAPI(`/stock/${id}`);
       const item = mapBackendStock(json.data);
       interface BackendMovement {
@@ -100,57 +111,69 @@ export function useStockItem(id: string) {
 
 export function useCreateStockItem() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => {
-      const json = await fetchAPI('/stock', { method: 'POST', body: JSON.stringify(data) });
-      return mapBackendStock(json.data) as StockItem;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stockItems'] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/stock', method: 'POST', entityType: 'stockItem' },
+    {
+      mutationFn: async (data: Record<string, unknown>) => {
+        const json = await fetchAPI('/stock', { method: 'POST', body: JSON.stringify(data) });
+        return mapBackendStock(json.data) as StockItem;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['stockItems'] });
+      },
+    }
+  );
 }
 
 export function useUpdateStockItem() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
-      const json = await fetchAPI(`/stock/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-      return mapBackendStock(json.data) as StockItem;
-    },
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['stockItems'] });
-      queryClient.invalidateQueries({ queryKey: ['stockItem', id] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/stock/{id}', method: 'PUT', entityType: 'stockItem' },
+    {
+      mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+        const json = await fetchAPI(`/stock/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return mapBackendStock(json.data) as StockItem;
+      },
+      onSuccess: (_, { id }) => {
+        queryClient.invalidateQueries({ queryKey: ['stockItems'] });
+        queryClient.invalidateQueries({ queryKey: ['stockItem', id] });
+      },
+    }
+  );
 }
 
 export function useDeleteStockItem() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await fetchAPI(`/stock/${id}`, { method: 'DELETE' });
-      return id;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stockItems'] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/stock/{id}', method: 'DELETE', entityType: 'stockItem' },
+    {
+      mutationFn: async (id: string) => {
+        await fetchAPI(`/stock/${id}`, { method: 'DELETE' });
+        return id;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['stockItems'] });
+      },
+    }
+  );
 }
 
 export function useCreateStockMovement() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => {
-      const json = await fetchAPI('/stock/movements', { method: 'POST', body: JSON.stringify(data) });
-      return json.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stockItems'] });
-      queryClient.invalidateQueries({ queryKey: ['stockItem'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    },
-  });
+  return useOfflineMutation(
+    { endpoint: '/stock/movements', method: 'POST', entityType: 'stockItem' },
+    {
+      mutationFn: async (data: Record<string, unknown>) => {
+        const json = await fetchAPI('/stock/movements', { method: 'POST', body: JSON.stringify(data) });
+        return json.data;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['stockItems'] });
+        queryClient.invalidateQueries({ queryKey: ['stockItem'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      },
+    }
+  );
 }
 
 export function useStockMovements() {

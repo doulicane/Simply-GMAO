@@ -162,7 +162,7 @@ export function CalendarView({ workOrders, onSelectWorkOrder }: CalendarViewProp
 
               return (
                 <div
-                  key={idx}
+                  key={cellDate || `pad-${idx}`}
                   className="min-h-[100px] p-2 border-r border-b border-[rgba(90,94,117,0.1)] flex flex-col gap-1"
                   style={{
                     backgroundColor: isToday(cell.day) && cell.isCurrentMonth

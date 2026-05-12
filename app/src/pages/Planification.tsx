@@ -170,11 +170,14 @@ export default function Planification() {
           >
             Aujourd'hui
           </button>
-          <h1 className="text-lg font-semibold text-simply-gmao-text min-w-[200px]">
+          <h1 className="text-lg font-semibold text-simply-gmao-text">
+            PLANIFICATION
+          </h1>
+          <span className="text-sm text-simply-gmao-text-light min-w-[200px]">
             {viewMode === 'week'
               ? `${weekDays[0].getDate()} ${MOIS[weekDays[0].getMonth()]} — ${weekDays[6].getDate()} ${MOIS[weekDays[6].getMonth()]} ${weekDays[6].getFullYear()}`
               : `${MOIS[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
-          </h1>
+          </span>
         </div>
 
         <div className="flex items-center gap-1 bg-simply-gmao-green/10 rounded-lg p-0.5">
@@ -403,7 +406,7 @@ function MonthView({
 
           return (
             <div
-              key={idx}
+              key={day.toISOString()}
               className={cn(
                 'bg-bg-elevated min-h-[100px] p-1.5 transition-colors',
                 !isCurrentMonth && 'opacity-40',

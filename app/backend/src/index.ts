@@ -244,7 +244,7 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/planning', planningRoutes);
 app.use('/api/checklist-templates', checklistRoutes);
-app.use('/api/work-orders', atexRoutes);
+app.use('/api/atex', atexRoutes);
 app.use('/api/sous-ensembles', sousEnsembleRoutes);
 app.use('/api/compteur-releves', compteurReleveRoutes);
 app.use('/api/import', importRoutes);

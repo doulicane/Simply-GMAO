@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { mockAuthApi } from './mocks/api';
+import { mockAuthApi, mockEquipmentsApi, mockDashboardApi, mockTicketsApi } from './mocks/api';
 
 test.describe('Équipements', () => {
   test.beforeEach(async ({ page }) => {
     await mockAuthApi(page);
+    await mockDashboardApi(page);
+    await mockTicketsApi(page);
+    await mockEquipmentsApi(page);
   });
 
   test('navigation et affichage de la page équipements', async ({ page }) => {

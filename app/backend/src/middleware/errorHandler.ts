@@ -9,7 +9,6 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
 // ---------------------------------------------------------------------------
@@ -122,10 +121,6 @@ export function globalErrorHandler(
     error: message,
     code: errorCode,
   };
-
-  if (env.NODE_ENV === 'development' && err.stack) {
-    response.stack = err.stack.split('\n');
-  }
 
   res.status(statusCode).json(response);
 }

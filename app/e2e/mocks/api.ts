@@ -52,7 +52,7 @@ export async function mockAuthApi(page: Page) {
 }
 
 export async function mockEquipmentsApi(page: Page) {
-  await page.route('**/api/equipments?**', async (route) => {
+  await page.route(/\/api\/equipments\?/, async (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -97,7 +97,7 @@ export async function mockEquipmentsApi(page: Page) {
 }
 
 export async function mockStockApi(page: Page) {
-  await page.route('**/api/stock?**', async (route) => {
+  await page.route(/\/api\/stock\?/, async (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -123,7 +123,7 @@ export async function mockStockApi(page: Page) {
 }
 
 export async function mockWorkOrdersApi(page: Page) {
-  await page.route('**/api/work-orders?**', async (route) => {
+  await page.route(/\/api\/work-orders\?/, async (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -149,7 +149,7 @@ export async function mockWorkOrdersApi(page: Page) {
     });
   });
 
-  await page.route('**/api/work-orders', async (route, request) => {
+  await page.route(/\/api\/work-orders$/, async (route, request) => {
     if (request.method() === 'POST') {
       route.fulfill({
         status: 201,
@@ -194,6 +194,16 @@ export async function mockWorkOrdersApi(page: Page) {
   });
 }
 
+export async function mockTicketsApi(page: Page) {
+  await page.route(/\/api\/tickets/, async (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { items: [], pagination: { page: 1, limit: 20, total: 0 } } }),
+    });
+  });
+}
+
 export async function mockDashboardApi(page: Page) {
   await page.route('**/api/dashboard/kpis', async (route) => {
     route.fulfill({
@@ -227,7 +237,7 @@ export async function mockDashboardApi(page: Page) {
     });
   });
 
-  await page.route('**/api/dashboard/recent-work-orders', async (route) => {
+  await page.route('**/api/dashboard/recent-work-orders**', async (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -235,7 +245,7 @@ export async function mockDashboardApi(page: Page) {
     });
   });
 
-  await page.route('**/api/dashboard/upcoming-preventive', async (route) => {
+  await page.route('**/api/dashboard/upcoming-preventive**', async (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -243,7 +253,7 @@ export async function mockDashboardApi(page: Page) {
     });
   });
 
-  await page.route('**/api/dashboard/availability-by-line', async (route) => {
+  await page.route('**/api/dashboard/availability-by-line**', async (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',

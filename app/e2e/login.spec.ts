@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mockAuthApi } from './mocks/api';
+import { mockAuthApi, mockTicketsApi } from './mocks/api';
 
 test.describe('Authentification', () => {
   test('page de login affichée', async ({ page }) => {
@@ -27,6 +27,7 @@ test.describe('Authentification', () => {
 
   test('connexion avec credentials valides redirige vers le dashboard', async ({ page }) => {
     await mockAuthApi(page);
+    await mockTicketsApi(page);
     await page.goto('/login');
     await page.fill('input[name="username"]', 'simply-gmao@gmao.com');
     await page.fill('input[type="password"]', 'simply-gmao2025');

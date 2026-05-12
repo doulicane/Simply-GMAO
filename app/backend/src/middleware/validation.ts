@@ -19,7 +19,7 @@ type ValidationTarget = 'body' | 'query' | 'params';
 // ---------------------------------------------------------------------------
 // Factory de middleware de validation
 // ---------------------------------------------------------------------------
-export function validate<T>(schema: ZodSchema<T>, target: ValidationTarget = 'body') {
+export function validate(schema: ZodSchema<any>, target: ValidationTarget = 'body') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const data = req[target];
     const result = schema.safeParse(data);
