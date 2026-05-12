@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, ScanQrCode, List, LayoutGrid, GitBranch, X, ChevronDown, Filter, MapPin } from 'lucide-react';
+import { Search, Plus, ScanQrCode, List, LayoutGrid, Network, X, ChevronDown, Filter, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ViewMode, EquipmentFilters, LevelFilter, CriticalityFilter, StatusFilter } from './types';
 import type { Criticality } from '@/types';
@@ -147,64 +147,71 @@ export function FilterBar({
       transition={{ duration: 0.25, delay: 0.1 }}
       className="flex flex-col gap-3"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div
-          className={cn(
-            'flex items-center gap-2 h-9 px-3 rounded-md border bg-bg-input transition-colors flex-1 min-w-[200px] max-w-xs',
-            searchFocused ? 'border-accent-teal shadow-glow' : 'border-[rgba(90,94,117,0.3)]'
-          )}
-        >
-          <Search className="w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Rechercher une machine, un code..."
-            value={filters.search}
-            onChange={(e) => onChange({ ...filters, search: e.target.value })}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
-          />
-          {filters.search && (
-            <button onClick={() => onChange({ ...filters, search: '' })} className="text-text-muted hover:text-text-primary">
-              <X className="w-4 h-4" />
-            </button>
-          )}
+      <div className="flex flex-col gap-2">
+        {/* Top row: search + actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search */}
+          <div
+            className={cn(
+              'flex items-center gap-2 h-9 px-3 rounded-md border bg-bg-input transition-colors flex-1 min-w-0',
+              searchFocused ? 'border-accent-teal shadow-glow' : 'border-[rgba(90,94,117,0.3)]'
+            )}
+          >
+            <Search className="w-4 h-4 text-text-muted flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={filters.search}
+              onChange={(e) => onChange({ ...filters, search: e.target.value })}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none min-w-0"
+            />
+            {filters.search && (
+              <button onClick={() => onChange({ ...filters, search: '' })} className="text-text-muted hover:text-text-primary flex-shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center bg-bg-input rounded-md border border-[rgba(90,94,117,0.3)] p-0.5">
+            {([
+              { mode: 'list' as ViewMode, icon: List },
+              { mode: 'grid' as ViewMode, icon: LayoutGrid },
+              { mode: 'org' as ViewMode, icon: Network },
+            ]).map(({ mode, icon: Icon }) => (
+              <button
+                key={mode}
+                onClick={() => onViewModeChange(mode)}
+                className={cn(
+                  'p-1.5 rounded transition-colors flex items-center justify-center',
+                  viewMode === mode ? 'bg-accent-teal text-white' : 'text-text-muted hover:text-text-primary'
+                )}
+                aria-label={mode}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            ))}
+          </div>
+
+          <button onClick={onScanQR} className="btn-secondary h-9 w-9 sm:w-auto sm:px-3 text-sm flex items-center justify-center gap-1.5">
+            <ScanQrCode className="w-4 h-4" />
+            <span className="hidden sm:inline">Scanner QR</span>
+          </button>
+          <button onClick={onNewEquipment} className="btn-primary h-9 w-9 sm:w-auto sm:px-3 text-sm flex items-center justify-center gap-1.5">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nouveau</span>
+          </button>
         </div>
 
-        <FilterDropdown value={filters.zone} options={ZONE_OPTIONS} onChange={(v) => onChange({ ...filters, zone: v })} icon={MapPin} />
-        <FilterDropdown value={filters.criticality} options={CRITICALITY_OPTIONS} onChange={(v) => onChange({ ...filters, criticality: v })} icon={Filter} />
-        <FilterDropdown value={filters.status} options={STATUS_OPTIONS} onChange={(v) => onChange({ ...filters, status: v })} icon={Filter} />
-
-        {/* View toggle */}
-        <div className="flex items-center bg-bg-input rounded-md border border-[rgba(90,94,117,0.3)] p-0.5 ml-auto">
-          {([
-            { mode: 'list' as ViewMode, icon: List },
-            { mode: 'grid' as ViewMode, icon: LayoutGrid },
-            { mode: 'tree' as ViewMode, icon: GitBranch },
-          ]).map(({ mode, icon: Icon }) => (
-            <button
-              key={mode}
-              onClick={() => onViewModeChange(mode)}
-              className={cn(
-                'p-1.5 rounded transition-colors flex items-center justify-center',
-                viewMode === mode ? 'bg-accent-teal text-white' : 'text-text-muted hover:text-text-primary'
-              )}
-              aria-label={mode}
-            >
-              <Icon className="w-4 h-4" />
-            </button>
-          ))}
+        {/* Bottom row: filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterDropdown value={filters.level} options={LEVEL_OPTIONS} onChange={(v) => onChange({ ...filters, level: v as LevelFilter })} icon={Filter} />
+          <FilterDropdown value={filters.zone} options={ZONE_OPTIONS} onChange={(v) => onChange({ ...filters, zone: v })} icon={MapPin} />
+          <FilterDropdown value={filters.criticality} options={CRITICALITY_OPTIONS} onChange={(v) => onChange({ ...filters, criticality: v })} icon={Filter} />
+          <FilterDropdown value={filters.status} options={STATUS_OPTIONS} onChange={(v) => onChange({ ...filters, status: v })} icon={Filter} />
         </div>
-
-        <button onClick={onScanQR} className="btn-secondary h-9 px-3 text-sm flex items-center gap-1.5">
-          <ScanQrCode className="w-4 h-4" />
-          <span className="hidden md:inline">Scanner QR</span>
-        </button>
-        <button onClick={onNewEquipment} className="btn-primary h-9 px-3 text-sm flex items-center gap-1.5">
-          <Plus className="w-4 h-4" />
-          <span className="hidden md:inline">Nouveau</span>
-        </button>
       </div>
 
       {/* Filter chips */}

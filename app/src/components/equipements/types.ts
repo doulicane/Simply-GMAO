@@ -22,7 +22,7 @@ export interface TreeNode {
   parentId?: string;
 }
 
-export type ViewMode = 'tree' | 'grid' | 'list';
+export type ViewMode = 'grid' | 'list' | 'org';
 
 export type LevelFilter = 'all' | 'site' | 'zone' | 'line' | 'machine' | 'subAssembly';
 export type CriticalityFilter = 'all' | 'critique' | 'elevee' | 'moyenne' | 'faible';

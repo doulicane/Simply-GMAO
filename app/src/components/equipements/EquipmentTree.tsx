@@ -1,23 +1,23 @@
 import { useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronDown, Building2, MapPin, ArrowRight, Cog, Puzzle } from 'lucide-react';
+import { ChevronRight, ChevronDown, Building2, MapPin, Factory, Cog, Puzzle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TreeNode } from './types';
 
 const NODE_ICONS: Record<TreeNode['type'], typeof Building2> = {
   site: Building2,
   zone: MapPin,
-  line: ArrowRight,
+  line: Factory,
   machine: Cog,
   subAssembly: Puzzle,
 };
 
 const NODE_INDENT: Record<TreeNode['type'], string> = {
   site: 'pl-0',
-  zone: 'pl-4',
-  line: 'pl-8',
-  machine: 'pl-12',
-  subAssembly: 'pl-16',
+  zone: 'pl-3',
+  line: 'pl-5',
+  machine: 'pl-8',
+  subAssembly: 'pl-10',
 };
 
 const STATUS_DOT_COLORS: Record<string, string> = {
@@ -98,9 +98,10 @@ function TreeNodeItem({
           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
         <Icon className={cn('w-4 h-4 flex-shrink-0', node.type === 'site' && 'text-accent-teal')} />
-        <span className="text-sm truncate flex-1">{node.name}</span>
+        <span className="text-sm truncate flex-1" title={node.name}>{node.name}</span>
         {node.criticality && node.type !== 'subAssembly' && (
           <span
+            title={`Criticité: ${node.criticality}`}
             className={cn(
               'w-2 h-2 rounded-full flex-shrink-0',
               CRITICALITY_COLORS[node.criticality].replace('text-white', '')
@@ -108,7 +109,10 @@ function TreeNodeItem({
           />
         )}
         {node.status && (
-          <span className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_DOT_COLORS[node.status])} />
+          <span
+            title={`Statut: ${node.status.replace(/_/g, ' ')}`}
+            className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_DOT_COLORS[node.status])}
+          />
         )}
       </div>
       <AnimatePresence initial={false}>

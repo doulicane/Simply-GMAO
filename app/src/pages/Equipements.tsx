@@ -1,12 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Search, ScanLine, Plus, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, ScanLine, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEquipments, useDeleteEquipment } from '@/hooks/useEquipments';
 import type { Equipment } from '@/types';
 import type { TreeNode, ViewMode, EquipmentFilters } from '@/components/equipements/types';
-import { EquipmentTree } from '@/components/equipements/EquipmentTree';
 import { EquipmentDetail } from '@/components/equipements/EquipmentDetail';
 import { EquipmentGrid } from '@/components/equipements/EquipmentGrid';
 import { EquipmentList } from '@/components/equipements/EquipmentList';
@@ -16,6 +15,7 @@ import { EquipmentCreationModal } from '@/components/equipements/EquipmentCreati
 import { EquipmentEditModal } from '@/components/equipements/EquipmentEditModal';
 import { QRScanner } from '@/components/qr/QRScanner';
 import { CriticalityMatrix } from '@/components/equipements/CriticalityMatrix';
+import { EquipmentOrgChart } from '@/components/equipements/EquipmentOrgChart';
 import { buildEquipmentTree, filterTree, flattenTreeToMachines, countMachinesAndSubAssemblies } from '@/components/equipements/treeUtils';
 
 
@@ -26,7 +26,7 @@ export default function Equipements() {
   const { data: equipment = [] } = useEquipments();
   const deleteEquipment = useDeleteEquipment();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('tree');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filters, setFilters] = useState<EquipmentFilters>({
     search: '',
     level: 'all',
@@ -44,7 +44,7 @@ export default function Equipements() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editEq, setEditEq] = useState<Equipment | null>(null);
   const [treeExpandedIds, setTreeExpandedIds] = useState<Set<string>>(new Set(['site-1']));
-  const [treePaneExpanded, setTreePaneExpanded] = useState(true);
+  const [matrixCollapsed, setMatrixCollapsed] = useState(false);
 
   const fullTree = useMemo(() => buildEquipmentTree(equipment), [equipment]);
   const filteredTree = useMemo(() => filterTree(fullTree, filters) ?? fullTree, [fullTree, filters]);
@@ -154,96 +154,32 @@ export default function Equipements() {
         />
       </div>
 
-      {/* Criticality Matrix */}
-      <div className="mb-5">
-        <CriticalityMatrix equipment={flatMachines} />
+      {/* Criticality Matrix — collapsible */}
+      <div className="mb-3">
+        <button
+          onClick={() => setMatrixCollapsed(!matrixCollapsed)}
+          className="flex items-center gap-2 text-xs font-medium text-text-secondary uppercase tracking-wide mb-2 hover:text-text-primary transition-colors"
+        >
+          {matrixCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          Matrice de criticité
+        </button>
+        <AnimatePresence initial={false}>
+          {!matrixCollapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            >
+              <CriticalityMatrix equipment={flatMachines} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Main Content Area */}
       <div className="flex flex-1 gap-4 min-h-0">
-        {/* Tree / List Pane */}
-        <AnimatePresence initial={false}>
-          {(viewMode === 'tree' || treePaneExpanded) && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: viewMode === 'tree' ? 360 : 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className={cn(
-                'flex flex-col border border-[rgba(90,94,117,0.2)] rounded-xl bg-bg-elevated overflow-hidden flex-shrink-0',
-                viewMode !== 'tree' && 'hidden lg:flex'
-              )}
-            >
-              {/* Tree header */}
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(90,94,117,0.15)] bg-bg-primary">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">Arborescence</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={expandAll} className="px-2 py-1 rounded text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">
-                    Développer
-                  </button>
-                  <button onClick={collapseAll} className="px-2 py-1 rounded text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">
-                    Réduire
-                  </button>
-                  {viewMode !== 'tree' && (
-                    <button
-                      onClick={() => setTreePaneExpanded(false)}
-                      className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
-                    >
-                      <Minimize2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Tree */}
-              <div className="flex-1 overflow-y-auto min-h-0 p-1">
-                {viewMode === 'tree' ? (
-                  <EquipmentTree
-                    tree={filteredTree}
-                    selectedId={selectedEq?.id}
-                    onSelect={handleSelectNode}
-                    expandedIds={treeExpandedIds}
-                    onToggleExpand={handleToggleExpand}
-                  />
-                ) : (
-                  <div className="flex flex-col">
-                    {flatMachines.map((eq) => (
-                      <button
-                        key={eq.id}
-                        onClick={() => handleSelectEquipment(eq)}
-                        className={cn(
-                          'flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
-                          selectedEq?.id === eq.id
-                            ? 'bg-accent-teal-glow border-l-[3px] border-accent-teal text-accent-teal'
-                            : 'border-l-[3px] border-transparent text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                        )}
-                      >
-                        <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
-                        <span className="truncate">{eq.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Tree footer */}
-              <div className="px-3 py-2 border-t border-[rgba(90,94,117,0.15)] bg-bg-primary text-[11px] text-text-muted">
-                {machineCount} machine{machineCount !== 1 ? 's' : ''}, {subCount} sous-ensemble{subCount !== 1 ? 's' : ''}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Show tree toggle when collapsed in non-tree mode */}
-        {viewMode !== 'tree' && !treePaneExpanded && (
-          <button
-            onClick={() => setTreePaneExpanded(true)}
-            className="flex-shrink-0 w-8 h-12 rounded-r-xl bg-bg-elevated border border-l-0 border-[rgba(90,94,117,0.2)] flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-        )}
-
         {/* Detail / Content Pane */}
         <div className="flex-1 min-w-0 flex flex-col">
           <AnimatePresence mode="wait">
@@ -296,6 +232,22 @@ export default function Equipements() {
                   equipment={flatMachines}
                   onSelect={handleSelectEquipment}
                   onNewBT={handleNewBT}
+                />
+              </motion.div>
+            ) : viewMode === 'org' ? (
+              <motion.div
+                key="org"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex-1 overflow-y-auto"
+              >
+                <EquipmentOrgChart
+                  tree={filteredTree}
+                  selectedId={selectedEq?.id}
+                  onSelect={handleSelectNode}
+                  expandedIds={treeExpandedIds}
+                  onToggleExpand={handleToggleExpand}
                 />
               </motion.div>
             ) : (
