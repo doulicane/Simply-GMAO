@@ -1,16 +1,23 @@
 import { test, expect } from '@playwright/test';
+import { mockAuthApi, mockDashboardApi } from './mocks/api';
 
 test.describe('Dashboard', () => {
-  test('navigation vers le dashboard', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
+    await mockAuthApi(page);
+    await mockDashboardApi(page);
+  });
+
+  test('redirection vers login sans session', async ({ page }) => {
     await page.goto('/');
-    // En l'absence de session, redirige vers login
     await expect(page).toHaveURL(/.*login.*/);
   });
 
-  test('navigation sidebar visible sur desktop', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 });
+  test('affichage du dashboard responsable après connexion', async ({ page }) => {
     await page.goto('/login');
-    // La sidebar n'est pas visible sur login, mais sur les pages authentifiées oui
-    await expect(page.locator('nav')).not.toBeVisible();
+    await page.fill('input[name="username"]', 'simply-gmao@gmao.com');
+    await page.fill('input[type="password"]', 'simply-gmao2025');
+    await page.click('button[type="submit"]');
+    await expect(page.getByRole('heading', { name: 'DASHBOARD' })).toBeVisible();
+    await expect(page.getByText('DISPONIBILITÉ', { exact: true })).toBeVisible();
   });
 });
