@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Search, ScanLine, Plus, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEquipmentStore } from '@/stores/equipmentStore';
+import { useEquipments, useDeleteEquipment } from '@/hooks/useEquipments';
 import type { Equipment } from '@/types';
 import type { TreeNode, ViewMode, EquipmentFilters } from '@/components/equipements/types';
 import { EquipmentTree } from '@/components/equipements/EquipmentTree';
@@ -23,11 +23,8 @@ import { buildEquipmentTree, filterTree, flattenTreeToMachines, countMachinesAnd
 export default function Equipements() {
   const workOrders: any[] = [];
   const preventivePlans: any[] = [];
-  const { equipment, fetchEquipment } = useEquipmentStore();
-
-  useEffect(() => {
-    fetchEquipment();
-  }, [fetchEquipment]);
+  const { data: equipment = [] } = useEquipments();
+  const deleteEquipment = useDeleteEquipment();
 
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [filters, setFilters] = useState<EquipmentFilters>({
@@ -81,19 +78,18 @@ export default function Equipements() {
     setEditModalOpen(true);
   }, []);
 
-  const handleDelete = useCallback((eq: Equipment) => {
+  const handleDelete = useCallback(async (eq: Equipment) => {
     if (window.confirm(`Supprimer l'équipement « ${eq.name} » (${eq.code}) ? Cette action est irréversible.`)) {
-      useEquipmentStore.getState().deleteEquipment(eq.id).then((ok) => {
-        if (ok) {
-          toast.success(`Équipement « ${eq.code} » supprimé`);
-          setDetailOpen(false);
-          setSelectedEq(null);
-        } else {
-          toast.error('Erreur lors de la suppression');
-        }
-      });
+      try {
+        await deleteEquipment.mutateAsync(eq.id);
+        toast.success(`Équipement « ${eq.code} » supprimé`);
+        setDetailOpen(false);
+        setSelectedEq(null);
+      } catch {
+        toast.error('Erreur lors de la suppression');
+      }
     }
-  }, []);
+  }, [deleteEquipment]);
 
   const handleScanResult = useCallback((code: string) => {
     setScannerOpen(false);

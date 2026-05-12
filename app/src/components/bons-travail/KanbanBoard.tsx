@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Inbox, Plus } from 'lucide-react';
 import type { WorkOrder, WorkOrderStatus } from '@/types';
-import { useWorkOrderStore } from '@/stores/workOrderStore';
+import { useUpdateWorkOrderStatus } from '@/hooks/useWorkOrders';
 import { KanbanCard } from './KanbanCard';
 import {
   KANBAN_COLUMNS,
@@ -17,7 +17,7 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ workOrders, onSelectWorkOrder, onCreateWorkOrder, readOnly = false }: KanbanBoardProps) {
-  const { updateWorkOrderStatus } = useWorkOrderStore();
+  const updateWorkOrderStatus = useUpdateWorkOrderStatus();
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
@@ -52,7 +52,7 @@ export function KanbanBoard({ workOrders, onSelectWorkOrder, onCreateWorkOrder, 
       if (currentColumn?.id === columnId) return;
 
       const newStatus = column.statuses[0];
-      updateWorkOrderStatus(id, newStatus);
+      updateWorkOrderStatus.mutateAsync({ id, status: newStatus }).catch(() => {});
       setDraggedId(null);
     },
     [draggedId, workOrders, updateWorkOrderStatus]

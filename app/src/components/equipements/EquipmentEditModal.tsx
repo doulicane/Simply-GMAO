@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Pencil, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useEquipmentStore } from '@/stores/equipmentStore';
+import { useUpdateEquipment } from '@/hooks/useEquipments';
 import type { Equipment } from '@/types';
 
 interface Props {
@@ -30,7 +30,7 @@ function frontendStatusToBackend(status: string): string {
 }
 
 export function EquipmentEditModal({ open, equipment, onClose }: Props) {
-  const { updateEquipment } = useEquipmentStore();
+  const updateEquipment = useUpdateEquipment();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState('autre');
@@ -46,7 +46,6 @@ export function EquipmentEditModal({ open, equipment, onClose }: Props) {
   const [contactAlimentaire, setContactAlimentaire] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (equipment) {
@@ -65,7 +64,7 @@ export function EquipmentEditModal({ open, equipment, onClose }: Props) {
       setContactAlimentaire(false);
       setError('');
       setSuccess(false);
-      setLoading(false);
+
     }
   }, [equipment]);
 
@@ -82,7 +81,6 @@ export function EquipmentEditModal({ open, equipment, onClose }: Props) {
     if (!code || code.length < 3) return setError('Le code doit faire au moins 3 caractères');
     if (!name) return setError('Le nom est requis');
 
-    setLoading(true);
     const payload: Record<string, any> = {
       code: code.trim().toUpperCase(),
       name: name.trim(),
@@ -99,12 +97,11 @@ export function EquipmentEditModal({ open, equipment, onClose }: Props) {
       contactAlimentaire,
     };
 
-    const result = await updateEquipment(equipment.id, payload);
-    setLoading(false);
-    if (result) {
+    try {
+      await updateEquipment.mutateAsync({ id: equipment.id, data: payload });
       setSuccess(true);
       setTimeout(() => handleClose(), 1200);
-    } else {
+    } catch {
       setError("Erreur lors de la modification. Vérifiez que le code n'existe pas déjà.");
     }
   };
@@ -323,10 +320,10 @@ export function EquipmentEditModal({ open, equipment, onClose }: Props) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || success}
+              disabled={updateEquipment.isPending || success}
               className="btn-primary h-9 px-4 text-sm flex items-center gap-2"
             >
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
+              {updateEquipment.isPending ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         </div>

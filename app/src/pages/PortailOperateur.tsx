@@ -9,8 +9,8 @@ import {
   Monitor,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { useEquipmentStore } from '@/stores/equipmentStore';
-import { useWorkOrderStore } from '@/stores/workOrderStore';
+import { useEquipments } from '@/hooks/useEquipments';
+import { useWorkOrders } from '@/hooks/useWorkOrders';
 import { useTicketStore } from '@/stores/ticketStore';
 import { useKioskMode } from '@/hooks/useKioskMode';
 import { cn } from '@/lib/utils';
@@ -175,7 +175,7 @@ function QRScannerOverlay({
   onClose: () => void;
   onSuccess: (eq: Equipment) => void;
 }) {
-  const { equipment } = useEquipmentStore();
+  const { data: equipment = [] } = useEquipments();
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState(false);
 
@@ -341,15 +341,10 @@ function SuccessScreen({
 export default function PortailOperateur() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { equipment, fetchEquipment } = useEquipmentStore();
-  const { workOrders, fetchWorkOrders } = useWorkOrderStore();
+  const { data: equipment = [] } = useEquipments();
+  const { data: workOrders = [] } = useWorkOrders();
   const { createTicket } = useTicketStore();
   const { kiosk, enterKiosk, exitKiosk } = useKioskMode();
-
-  useEffect(() => {
-    fetchEquipment();
-    fetchWorkOrders();
-  }, [fetchEquipment, fetchWorkOrders]);
 
   useEffect(() => {
     const handler = () => {

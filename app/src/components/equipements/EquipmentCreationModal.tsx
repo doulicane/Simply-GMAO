@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useEquipmentStore } from '@/stores/equipmentStore';
+import { useCreateEquipment } from '@/hooks/useEquipments';
 
 interface Props {
   open: boolean;
@@ -18,7 +18,7 @@ const CRITICALITIES = ['CRITIQUE', 'ELEVEE', 'MOYENNE', 'FAIBLE'];
 const STATUSES = ['EN_SERVICE', 'EN_ARRET', 'EN_MAINTENANCE', 'HORS_SERVICE'];
 
 export function EquipmentCreationModal({ open, onClose }: Props) {
-  const { createEquipment } = useEquipmentStore();
+  const createEquipment = useCreateEquipment();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState('autre');
@@ -34,7 +34,6 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
   const [contactAlimentaire, setContactAlimentaire] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const reset = () => {
     setCode('');
@@ -52,7 +51,7 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
     setContactAlimentaire(false);
     setError('');
     setSuccess(false);
-    setLoading(false);
+
   };
 
   const handleClose = () => {
@@ -66,7 +65,6 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
     if (!code || code.length < 3) return setError('Le code doit faire au moins 3 caractères');
     if (!name) return setError('Le nom est requis');
 
-    setLoading(true);
     const payload: Record<string, any> = {
       code: code.trim().toUpperCase(),
       name: name.trim(),
@@ -83,12 +81,11 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
       contactAlimentaire,
     };
 
-    const result = await createEquipment(payload);
-    setLoading(false);
-    if (result) {
+    try {
+      await createEquipment.mutateAsync(payload);
       setSuccess(true);
       setTimeout(() => handleClose(), 1200);
-    } else {
+    } catch {
       setError("Erreur lors de la création. Vérifiez que le code n'existe pas déjà.");
     }
   };
@@ -307,10 +304,10 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || success}
+              disabled={createEquipment.isPending || success}
               className="btn-primary h-9 px-4 text-sm flex items-center gap-2"
             >
-              {loading ? 'Création...' : 'Créer'}
+              {createEquipment.isPending ? 'Création...' : 'Créer'}
             </button>
           </div>
         </div>

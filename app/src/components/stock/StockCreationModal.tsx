@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useStockStore } from '@/stores/stockStore';
+import { useCreateStockItem } from '@/hooks/useStock';
 
 interface Props {
   open: boolean;
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function StockCreationModal({ open, onClose }: Props) {
-  const { createItem } = useStockStore();
+  const createMutation = useCreateStockItem();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [famille, setFamille] = useState('');
@@ -24,7 +24,6 @@ export function StockCreationModal({ open, onClose }: Props) {
   const [fournisseur, setFournisseur] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const reset = () => {
     setCode('');
@@ -41,7 +40,6 @@ export function StockCreationModal({ open, onClose }: Props) {
     setFournisseur('');
     setError('');
     setSuccess(false);
-    setLoading(false);
   };
 
   const handleClose = () => {
@@ -57,7 +55,6 @@ export function StockCreationModal({ open, onClose }: Props) {
     if (!famille.trim()) return setError('La famille est requise');
     if (!stockMinimum.trim()) return setError('Le stock minimum est requis');
 
-    setLoading(true);
     const payload: Record<string, any> = {
       code: code.trim().toUpperCase(),
       name: name.trim(),
@@ -73,8 +70,7 @@ export function StockCreationModal({ open, onClose }: Props) {
       fournisseur: fournisseur.trim() || null,
     };
 
-    const result = await createItem(payload);
-    setLoading(false);
+    const result = await createMutation.mutateAsync(payload);
     if (result) {
       setSuccess(true);
       setTimeout(() => handleClose(), 1200);
@@ -299,10 +295,10 @@ export function StockCreationModal({ open, onClose }: Props) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || success}
+              disabled={createMutation.isPending || success}
               className="btn-primary h-9 px-4 text-sm flex items-center gap-2"
             >
-              {loading ? 'Création...' : 'Créer'}
+              {createMutation.isPending ? 'Création...' : 'Créer'}
             </button>
           </div>
         </div>

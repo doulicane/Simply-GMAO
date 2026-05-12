@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useStockStore } from '@/stores/stockStore';
+import { useState, useMemo, useCallback } from 'react';
+import { useStockItems, useDeleteStockItem, useStockMovements, useStockItem } from '@/hooks/useStock';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
@@ -325,17 +325,7 @@ function StockTable({
 }
 
 function StockMovementsView() {
-  const { fetchMovements } = useStockStore();
-  const [movements, setMovements] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchMovements().then((data) => {
-      setMovements(data);
-      setLoading(false);
-    });
-  }, [fetchMovements]);
+  const { data: movements = [], isLoading: loading } = useStockMovements();
 
   return (
     <div className="bg-bg-elevated rounded-xl border border-[rgba(90,94,117,0.2)] overflow-hidden">
@@ -561,21 +551,7 @@ function StockPartDrawer({
   onEdit: (item: StockItem) => void;
   onDelete: (item: StockItem) => void;
 }) {
-  const { fetchItemDetail } = useStockStore();
-  const [detail, setDetail] = useState<{ item: StockItem; movements: any[] } | null>(null);
-  const [loadingMovements, setLoadingMovements] = useState(false);
-
-  useEffect(() => {
-    if (open && item) {
-      setLoadingMovements(true);
-      fetchItemDetail(item.id).then((d) => {
-        if (d) setDetail({ item: d, movements: d.movements ?? [] });
-        setLoadingMovements(false);
-      });
-    } else {
-      setDetail(null);
-    }
-  }, [open, item]);
+  const { data: detail, isLoading: loadingMovements } = useStockItem(item?.id ?? '');
 
   if (!item) return null;
 
@@ -752,11 +728,8 @@ function StockPartDrawer({
 /* ─── Main Page ─── */
 
 export default function Stocks() {
-  const { stockItems, fetchItems } = useStockStore();
-
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+  const { data: stockItems = [] } = useStockItems();
+  const deleteMutation = useDeleteStockItem();
   const [activeTab, setActiveTab] = useState<StockView>('stock');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -898,11 +871,10 @@ export default function Stocks() {
         onClose={() => setDrawerOpen(false)}
         onNewMovement={(item) => { setMovementPreselectedItem(item); setMovementDefaultType('ENTREE'); setMovementModalOpen(true); }}
         onEdit={(item) => { setSelectedItem(item); setEditModalOpen(true); }}
-        onDelete={(item) => {
+        onDelete={async (item) => {
           if (confirm(`Retirer l'article "${item.name}" du stock ?`)) {
-            useStockStore.getState().deleteItem(item.id).then((ok) => {
-              if (ok) setDrawerOpen(false);
-            });
+            await deleteMutation.mutateAsync(item.id);
+            setDrawerOpen(false);
           }
         }}
       />

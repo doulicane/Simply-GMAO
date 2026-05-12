@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { WorkOrder, WorkOrderStatus } from '@/types';
-import { useWorkOrderStore } from '@/stores/workOrderStore';
+import { useWorkOrders } from '@/hooks/useWorkOrders';
 import { useAuthStore } from '@/stores/authStore';
 import { FilterBar, type ViewMode, type FilterState } from '@/components/bons-travail/FilterBar';
 import { KanbanBoard } from '@/components/bons-travail/KanbanBoard';
@@ -12,11 +12,7 @@ import { CreationModal } from '@/components/bons-travail/CreationModal';
 import { Inbox } from 'lucide-react';
 
 export default function BonsDeTravail() {
-  const { workOrders, fetchWorkOrders } = useWorkOrderStore();
-
-  useEffect(() => {
-    fetchWorkOrders();
-  }, [fetchWorkOrders]);
+  const { data: workOrders = [], isLoading: loading } = useWorkOrders();
   const { hasRole } = useAuthStore();
   const isReadOnly = !hasRole(['responsable', 'technicien']);
 

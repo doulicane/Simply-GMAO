@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { WorkOrder, WorkOrderType, Priority, WorkOrderStatus } from '@/types';
-import { useWorkOrderStore } from '@/stores/workOrderStore';
-import { useEquipmentStore } from '@/stores/equipmentStore';
+import { useCreateWorkOrder } from '@/hooks/useWorkOrders';
+import { useEquipments } from '@/hooks/useEquipments';
 import { useAuthStore } from '@/stores/authStore';
 import {
   TYPE_LABELS,
@@ -21,8 +21,8 @@ const WORK_ORDER_TYPES: WorkOrderType[] = ['corrective', 'preventive', 'improvem
 const PRIORITIES: Priority[] = ['P1', 'P2', 'P3', 'P4'];
 
 export function CreationModal({ open, onClose, initialStatus = 'draft' }: CreationModalProps) {
-  const { equipment } = useEquipmentStore();
-  const { createWorkOrder } = useWorkOrderStore();
+  const { data: equipment = [] } = useEquipments();
+  const createWorkOrder = useCreateWorkOrder();
   const { user } = useAuthStore();
   const [step, setStep] = useState(1);
   const [equipmentId, setEquipmentId] = useState('');
@@ -67,7 +67,7 @@ export function CreationModal({ open, onClose, initialStatus = 'draft' }: Creati
     const priorityMap: Record<Priority, string> = { P1: 'URGENTE', P2: 'HAUTE', P3: 'MOYENNE', P4: 'BASSE' };
     const typeMap: Record<WorkOrderType, string> = { corrective: 'CORRECTIF', preventive: 'PREVENTIF', predictive: 'PREDICTIF', improvement: 'AMELIORATION', safety: 'SECURITE' };
 
-    createWorkOrder({
+    createWorkOrder.mutateAsync({
       title: description.slice(0, 50),
       description,
       equipmentId: selectedEquipment.id,
@@ -304,8 +304,8 @@ export function CreationModal({ open, onClose, initialStatus = 'draft' }: Creati
                   <button onClick={() => setStep(1)} className="btn-ghost text-sm h-9 px-4">
                     Retour
                   </button>
-                  <button onClick={handleCreate} className="btn-primary text-sm h-9 px-4">
-                    Créer le BT
+                  <button onClick={handleCreate} disabled={createWorkOrder.isPending} className="btn-primary text-sm h-9 px-4">
+                    {createWorkOrder.isPending ? 'Création...' : 'Créer le BT'}
                   </button>
                 </>
               )}

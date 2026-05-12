@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import type { WorkOrder, WorkOrderStatus } from '@/types';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
-import { useWorkOrderStore } from '@/stores/workOrderStore';
+import { useUpdateWorkOrderStatus } from '@/hooks/useWorkOrders';
 import { StatusTimeline } from './StatusTimeline';
 import {
   STATUS_LABELS,
@@ -41,7 +41,7 @@ const STATUS_TRANSITIONS: Record<WorkOrderStatus, { label: string; next: WorkOrd
 };
 
 export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
-  const { updateWorkOrderStatus } = useWorkOrderStore();
+  const updateWorkOrderStatus = useUpdateWorkOrderStatus();
   const [activeTab, setActiveTab] = useState<'info' | 'actions' | 'parts' | 'notes'>('info');
 
   if (!workOrder) return null;
@@ -49,7 +49,7 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
   const transitions = STATUS_TRANSITIONS[workOrder.status];
 
   const handleStatusChange = (newStatus: WorkOrderStatus) => {
-    updateWorkOrderStatus(workOrder.id, newStatus);
+    updateWorkOrderStatus.mutateAsync({ id: workOrder.id, status: newStatus }).catch(() => {});
   };
 
   const tabs = [

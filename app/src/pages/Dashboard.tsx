@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
-import { useDashboardStore } from '@/stores/dashboardStore';
+import { useDashboardKPIs, useDashboardAlerts, useDashboardRecentWOs, useDashboardUpcomingPMs, useDashboardAvailabilityByLine } from '@/hooks/useDashboardData';
 import { useAuthStore } from '@/stores/authStore';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { TicketsWidget } from '@/components/TicketsWidget';
@@ -267,11 +267,8 @@ function QuickTile({
 function TechnicienDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { workOrders, preventivePlans, fetchDashboard } = useDashboardStore();
-
-  useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+  const { data: workOrders = [] } = useDashboardRecentWOs();
+  const { data: preventivePlans = [] } = useDashboardUpcomingPMs();
 
   const myWorkOrders = useMemo(() => {
     return workOrders.filter((wo) => wo.assignedTo === user?.name);
@@ -310,7 +307,6 @@ function TechnicienDashboard() {
           <p className="text-xs text-text-secondary mt-0.5">Bons de travail et maintenance préventive assignés</p>
         </div>
         <button
-          onClick={() => fetchDashboard()}
           className="p-2 rounded-md hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-colors"
           aria-label="Actualiser"
         >
@@ -447,15 +443,30 @@ function TechnicienDashboard() {
 export default function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { kpi, alerts, workOrders, preventivePlans, availabilityByLine, fetchDashboard, loading } = useDashboardStore();
+  const { data: kpiData } = useDashboardKPIs();
+  const { data: alerts = [] } = useDashboardAlerts();
+  const { data: workOrders = [] } = useDashboardRecentWOs();
+  const { data: preventivePlans = [] } = useDashboardUpcomingPMs();
+  const { data: availabilityByLine = [] } = useDashboardAvailabilityByLine();
+
+  const kpi = kpiData ?? {
+    availability: 0,
+    availabilityTrend: 0,
+    mttr: 0,
+    mttrTrend: 0,
+    mtbf: 0,
+    mtbfTrend: 0,
+    openWorkOrders: 0,
+    urgentWorkOrders: 0,
+    highWorkOrders: 0,
+    mediumWorkOrders: 0,
+    lowWorkOrders: 0,
+    overdueWorkOrders: 0,
+  };
 
   if (user?.role === 'technicien') {
     return <TechnicienDashboard />;
   }
-
-  useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
 
   const availabilityVal = useCountUp(kpi.availability, 800, 1);
   function formatHeuresMin(val: number): string {

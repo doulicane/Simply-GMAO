@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { usePreventiveStore } from '@/stores/preventiveStore';
-import { useWorkOrderStore } from '@/stores/workOrderStore';
+import { useState, useMemo, useCallback } from 'react';
+import { usePreventivePlans, useGeneratePreventiveWO } from '@/hooks/usePreventive';
+import { useWorkOrders } from '@/hooks/useWorkOrders';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
@@ -668,13 +668,9 @@ function PMTaskDrawer({
 /* ─── Main Page ─── */
 
 export default function MaintenancePreventive() {
-  const { preventivePlans, fetchPlans, generateWO } = usePreventiveStore();
-  const { workOrders, fetchWorkOrders } = useWorkOrderStore();
-
-  useEffect(() => {
-    fetchPlans();
-    fetchWorkOrders();
-  }, [fetchPlans, fetchWorkOrders]);
+  const { data: preventivePlans = [] } = usePreventivePlans();
+  const generateMutation = useGeneratePreventiveWO();
+  const { data: workOrders = [] } = useWorkOrders();
   const [activeTab, setActiveTab] = useState<PMView>('planificateur');
   const [search, setSearch] = useState('');
   const [equipmentFilter, setEquipmentFilter] = useState('');
@@ -713,14 +709,14 @@ export default function MaintenancePreventive() {
 
   const confirmGenerateBT = useCallback(() => {
     if (!confirmPlan) return;
-    generateWO(confirmPlan.id).then(() => {
+    generateMutation.mutateAsync(confirmPlan.id).then(() => {
       setConfirmOpen(false);
       setConfirmPlan(null);
       setDrawerOpen(false);
       setToast(`BT généré pour ${confirmPlan.title}`);
       setTimeout(() => setToast(null), 4000);
     });
-  }, [confirmPlan, generateWO]);
+  }, [confirmPlan, generateMutation]);
 
   return (
     <div className="min-h-[100dvh] p-5 lg:p-8">

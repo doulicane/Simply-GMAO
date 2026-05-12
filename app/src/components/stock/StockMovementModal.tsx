@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, CheckCircle, ArrowDownLeft, ArrowUpRight, SlidersHorizontal } from 'lucide-react';
-import { useStockStore } from '@/stores/stockStore';
+import { useStockItems, useCreateStockMovement } from '@/hooks/useStock';
 import type { StockItem } from '@/types';
 
 interface Props {
@@ -18,14 +18,14 @@ const TYPE_OPTIONS = [
 ];
 
 export function StockMovementModal({ open, onClose, preselectedItem, defaultType }: Props) {
-  const { stockItems, createMovement } = useStockStore();
+  const { data: stockItems = [] } = useStockItems();
+  const createMutation = useCreateStockMovement();
   const [itemId, setItemId] = useState(preselectedItem?.id ?? '');
   const [type, setType] = useState<'ENTREE' | 'SORTIE' | 'AJUSTEMENT'>(defaultType ?? 'ENTREE');
   const [quantite, setQuantite] = useState('');
   const [commentaire, setCommentaire] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const selectedItem = useMemo(() => stockItems.find((i) => i.id === itemId) ?? null, [stockItems, itemId]);
 
@@ -36,7 +36,6 @@ export function StockMovementModal({ open, onClose, preselectedItem, defaultType
     setCommentaire('');
     setError('');
     setSuccess(false);
-    setLoading(false);
   };
 
   const handleClose = () => {
@@ -53,14 +52,12 @@ export function StockMovementModal({ open, onClose, preselectedItem, defaultType
       return setError(`Stock insuffisant. Disponible : ${selectedItem.quantity}`);
     }
 
-    setLoading(true);
-    const ok = await createMovement({
+    const ok = await createMutation.mutateAsync({
       stockItemId: itemId,
       type,
       quantite: Number(quantite),
       commentaire: commentaire.trim() || undefined,
     });
-    setLoading(false);
     if (ok) {
       setSuccess(true);
       setTimeout(() => handleClose(), 1200);
@@ -190,10 +187,10 @@ export function StockMovementModal({ open, onClose, preselectedItem, defaultType
             <button type="button" onClick={handleClose} className="btn-ghost h-9 px-4 text-sm">Annuler</button>
             <button
               onClick={handleSubmit}
-              disabled={loading || success}
+              disabled={createMutation.isPending || success}
               className="btn-primary h-9 px-4 text-sm flex items-center gap-2"
             >
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
+              {createMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         </div>

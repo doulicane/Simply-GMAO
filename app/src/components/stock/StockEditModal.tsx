@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useStockStore } from '@/stores/stockStore';
+import { useUpdateStockItem } from '@/hooks/useStock';
 import type { StockItem } from '@/types';
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function StockEditModal({ open, onClose, item }: Props) {
-  const { updateItem } = useStockStore();
+  const updateMutation = useUpdateStockItem();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [famille, setFamille] = useState('');
@@ -26,7 +26,6 @@ export function StockEditModal({ open, onClose, item }: Props) {
   const [fournisseur, setFournisseur] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -63,7 +62,6 @@ export function StockEditModal({ open, onClose, item }: Props) {
     if (!famille.trim()) return setError('La famille est requise');
     if (!stockMinimum.trim()) return setError('Le stock minimum est requis');
 
-    setLoading(true);
     const payload: Record<string, any> = {
       code: code.trim().toUpperCase(),
       name: name.trim(),
@@ -79,8 +77,7 @@ export function StockEditModal({ open, onClose, item }: Props) {
       fournisseur: fournisseur.trim() || null,
     };
 
-    const result = await updateItem(item.id, payload);
-    setLoading(false);
+    const result = await updateMutation.mutateAsync({ id: item.id, data: payload });
     if (result) {
       setSuccess(true);
       setTimeout(() => handleClose(), 1200);
@@ -202,8 +199,8 @@ export function StockEditModal({ open, onClose, item }: Props) {
 
           <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[rgba(90,94,117,0.2)]">
             <button type="button" onClick={handleClose} className="btn-ghost h-9 px-4 text-sm">Annuler</button>
-            <button onClick={handleSubmit} disabled={loading || success} className="btn-primary h-9 px-4 text-sm flex items-center gap-2">
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
+            <button onClick={handleSubmit} disabled={updateMutation.isPending || success} className="btn-primary h-9 px-4 text-sm flex items-center gap-2">
+              {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         </div>

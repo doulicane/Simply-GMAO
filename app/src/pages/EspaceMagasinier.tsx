@@ -6,7 +6,7 @@ import {
   TrendingDown, TrendingUp, Euro, Boxes, Eye, Plus,
   ChevronRight, Clock, MapPin, Factory,
 } from 'lucide-react';
-import { useStockStore } from '@/stores/stockStore';
+import { useStockItems } from '@/hooks/useStock';
 import { StatusBadge } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import type { StockItem } from '@/types';
@@ -132,11 +132,7 @@ function CommandeRow({ id, fournisseur, date, prevue, articles, statut }: {
 /* ─── Main Page ─── */
 export default function EspaceMagasinier() {
   const navigate = useNavigate();
-  const { stockItems, fetchItems } = useStockStore();
-
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+  const { data: stockItems = [] } = useStockItems();
 
   const ruptures = stockItems.filter((i) => i.status === 'out_of_stock' || i.status === 'critical');
   const sousMin = stockItems.filter((i) => i.status === 'low');
