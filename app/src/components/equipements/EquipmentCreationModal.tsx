@@ -17,6 +17,7 @@ const TYPES = [
 const CRITICALITIES = ['CRITIQUE', 'ELEVEE', 'MOYENNE', 'FAIBLE'];
 const STATUSES = ['EN_SERVICE', 'EN_ARRET', 'EN_MAINTENANCE', 'HORS_SERVICE'];
 
+
 export function EquipmentCreationModal({ open, onClose }: Props) {
   const createEquipment = useCreateEquipment();
   const [code, setCode] = useState('');
@@ -29,9 +30,13 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
   const [numSerie, setNumSerie] = useState('');
   const [dateMiseService, setDateMiseService] = useState('');
   const [dateAchat, setDateAchat] = useState('');
-  const [compteurActuel, setCompteurActuel] = useState('');
-  const [compteurUnite, setCompteurUnite] = useState('h');
   const [contactAlimentaire, setContactAlimentaire] = useState(false);
+  const [isAtex, setIsAtex] = useState(false);
+  const [dateDerniereInspectionAtex, setDateDerniereInspectionAtex] = useState('');
+  const [dateProchaineInspectionAtex, setDateProchaineInspectionAtex] = useState('');
+  const [model, setModel] = useState('');
+  const [alimentation, setAlimentation] = useState('');
+  const [dimensions, setDimensions] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -46,9 +51,13 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
     setNumSerie('');
     setDateMiseService('');
     setDateAchat('');
-    setCompteurActuel('');
-    setCompteurUnite('h');
     setContactAlimentaire(false);
+    setIsAtex(false);
+    setDateDerniereInspectionAtex('');
+    setDateProchaineInspectionAtex('');
+    setModel('');
+    setAlimentation('');
+    setDimensions('');
     setError('');
     setSuccess(false);
 
@@ -76,9 +85,13 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
       numSerie: numSerie.trim() || undefined,
       dateMiseService: dateMiseService || undefined,
       dateAchat: dateAchat || undefined,
-      compteurActuel: compteurActuel ? Number(compteurActuel) : undefined,
-      compteurUnite: compteurUnite.trim() || undefined,
       contactAlimentaire,
+      isAtex,
+      dateDerniereInspectionAtex: dateDerniereInspectionAtex || undefined,
+      dateProchaineInspectionAtex: dateProchaineInspectionAtex || undefined,
+      model: model.trim() || undefined,
+      alimentation: alimentation.trim() || undefined,
+      dimensions: dimensions.trim() || undefined,
     };
 
     try {
@@ -176,6 +189,20 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2">
+                <input
+                  id="eq-create-isAtex"
+                  name="isAtex"
+                  type="checkbox"
+                  checked={isAtex}
+                  onChange={(e) => setIsAtex(e.target.checked)}
+                  className="w-1 h-1 rounded border-border bg-bg-elevated accent-red-500"
+                />
+                <label htmlFor="eq-create-isAtex" className="text-sm text-text-secondary">Zone ATEX</label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-secondary">Criticité</label>
                 <select id="eq-create-criticality" name="criticality" value={criticality} onChange={(e) => setCriticality(e.target.value)} className="input-industrial w-full">
@@ -214,6 +241,31 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
                   type="date"
                   value={dateMiseService}
                   onChange={(e) => setDateMiseService(e.target.value)}
+                  className="input-industrial w-full"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-secondary">Dernière inspection ATEX</label>
+                <input
+                  id="eq-create-dateDerniereInspectionAtex"
+                  name="dateDerniereInspectionAtex"
+                  type="date"
+                  value={dateDerniereInspectionAtex}
+                  onChange={(e) => setDateDerniereInspectionAtex(e.target.value)}
+                  className="input-industrial w-full"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-secondary">Prochaine inspection ATEX</label>
+                <input
+                  id="eq-create-dateProchaineInspectionAtex"
+                  name="dateProchaineInspectionAtex"
+                  type="date"
+                  value={dateProchaineInspectionAtex}
+                  onChange={(e) => setDateProchaineInspectionAtex(e.target.value)}
                   className="input-industrial w-full"
                 />
               </div>
@@ -258,27 +310,38 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-text-secondary">Compteur actuel</label>
+                <label className="text-xs font-medium text-text-secondary">Modèle</label>
                 <input
-                  id="eq-create-compteurActuel"
-                  name="compteurActuel"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={compteurActuel}
-                  onChange={(e) => setCompteurActuel(e.target.value)}
-                  placeholder="0"
+                  id="eq-create-model"
+                  name="model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="Référence modèle"
                   className="input-industrial w-full"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-text-secondary">Unité compteur</label>
+                <label className="text-xs font-medium text-text-secondary">Alimentation</label>
                 <input
-                  id="eq-create-compteurUnite"
-                  name="compteurUnite"
-                  value={compteurUnite}
-                  onChange={(e) => setCompteurUnite(e.target.value)}
-                  placeholder="h, km, cycles..."
+                  id="eq-create-alimentation"
+                  name="alimentation"
+                  value={alimentation}
+                  onChange={(e) => setAlimentation(e.target.value)}
+                  placeholder="Ex: 400V / 250kW"
+                  className="input-industrial w-full"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-secondary">Dimensions</label>
+                <input
+                  id="eq-create-dimensions"
+                  name="dimensions"
+                  value={dimensions}
+                  onChange={(e) => setDimensions(e.target.value)}
+                  placeholder="Ex: 4.2m x 2.1m x 3.5m"
                   className="input-industrial w-full"
                 />
               </div>
@@ -291,7 +354,7 @@ export function EquipmentCreationModal({ open, onClose }: Props) {
                 type="checkbox"
                 checked={contactAlimentaire}
                 onChange={(e) => setContactAlimentaire(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-bg-elevated text-primary"
+                className="w-1 h-1 rounded border-border bg-bg-elevated accent-red-500"
               />
               <label htmlFor="eq-create-contactAlimentaire" className="text-sm text-text-secondary">Contact alimentaire</label>
             </div>

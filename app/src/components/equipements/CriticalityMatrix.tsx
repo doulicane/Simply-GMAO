@@ -20,15 +20,15 @@ const STATUS_META: Record<string, { label: string; dot: string }> = {
   stopped: { label: 'Arrêté', dot: 'bg-status-neutral' },
   maintenance: { label: 'Maintenance', dot: 'bg-status-warning' },
   breakdown: { label: 'En panne', dot: 'bg-status-critical' },
-  standby: { label: 'En attente', dot: 'bg-status-info' },
+
 };
 
 export const CriticalityMatrix = memo(function CriticalityMatrix({ equipment }: CriticalityMatrixProps) {
   const counts = {
-    critique: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, standby: 0, total: 0 },
-    elevee: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, standby: 0, total: 0 },
-    moyenne: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, standby: 0, total: 0 },
-    faible: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, standby: 0, total: 0 },
+    critique: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, total: 0 },
+    elevee: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, total: 0 },
+    moyenne: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, total: 0 },
+    faible: { running: 0, stopped: 0, maintenance: 0, breakdown: 0, total: 0 },
   };
 
   for (const eq of equipment) {
@@ -40,7 +40,7 @@ export const CriticalityMatrix = memo(function CriticalityMatrix({ equipment }: 
   }
 
   const criticalities = ['critique', 'elevee', 'moyenne', 'faible'] as const;
-  const statuses = ['running', 'stopped', 'maintenance', 'breakdown', 'standby'] as const;
+  const statuses = ['running', 'stopped', 'maintenance', 'breakdown'] as const;
 
   return (
     <motion.div

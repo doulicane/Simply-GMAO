@@ -25,17 +25,20 @@ import { env } from '../config/env';
 const router = Router();
 const UPLOAD_DIR = env.UPLOAD_DIR;
 
+const documentQuerySchema = paginationQuerySchema.extend({
+  equipmentId: z.string().uuid().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // GET /api/documents — Liste paginée
 // ---------------------------------------------------------------------------
 router.get(
   '/',
   authenticate,
-  validate(paginationQuerySchema, 'query'),
+  validate(documentQuerySchema, 'query'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { page, limit } = req.query as unknown as z.infer<typeof paginationQuerySchema>;
-      const { equipmentId } = req.query;
+      const { page, limit, equipmentId } = req.query as unknown as z.infer<typeof documentQuerySchema>;
 
       const where: any = { deletedAt: null };
       if (equipmentId) where.equipmentId = equipmentId;
@@ -125,6 +128,62 @@ router.post(
         data: doc,
         message: 'Document restaure avec succes',
       });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/documents/:id/download — Téléchargement d'un document
+// ---------------------------------------------------------------------------
+router.get(
+  '/:id/download',
+  authenticate,
+  validate(uuidParamSchema, 'params'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const doc = await prisma.document.findFirst({
+        where: { id, deletedAt: null },
+        include: { equipment: { select: { id: true, code: true, name: true } } },
+      });
+
+      if (!doc) {
+        throw new AppError('Document introuvable', 404);
+      }
+
+      const filePath = path.join(UPLOAD_DIR, doc.path);
+      if (!fs.existsSync(filePath)) {
+        throw new AppError('Fichier introuvable sur le disque', 404);
+      }
+
+      const resolvedPath = path.resolve(filePath);
+      const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+      if (!resolvedPath.startsWith(resolvedUploadDir)) {
+        throw new AppError('Acces refuse', 403);
+      }
+
+      // Detection du Content-Type selon l'extension
+      const ext = path.extname(doc.originalName).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      res.setHeader('Content-Type', contentType);
+      // Pas de Content-Disposition: attachment → le navigateur affiche inline (PDF, images)
+      res.sendFile(resolvedPath);
     } catch (err) {
       next(err);
     }

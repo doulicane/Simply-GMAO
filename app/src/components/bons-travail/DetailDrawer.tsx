@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Printer, Copy, Pencil, CheckCircle, Play, Pause,
+  X, Printer, CheckCircle, Play, Pause,
   Lock, Unlock, Wrench,
   Package, FileText, MessageSquare, User, Calendar,
 } from 'lucide-react';
@@ -94,18 +94,7 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
             >
               <Printer className="w-4 h-4" />
             </button>
-            <button
-              className="p-2 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
-              aria-label="Dupliquer"
-            >
-              <Copy className="w-4 h-4" />
-            </button>
-            <button
-              className="p-2 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
-              aria-label="Modifier"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
+
             <button
               onClick={onClose}
               className="p-2 rounded-md hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
@@ -347,9 +336,6 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
           <div className="flex items-center gap-2">
             <button className="btn-ghost text-sm h-9 px-3">
               Imprimer
-            </button>
-            <button className="btn-ghost text-sm h-9 px-3">
-              Dupliquer
             </button>
           </div>
         </div>

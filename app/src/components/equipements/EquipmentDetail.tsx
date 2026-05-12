@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   History, CalendarClock, FileText, GitBranch, X, Pencil, Trash2, Copy,
-  ClipboardList, MoreVertical, Cog, Download, Plus,
-  ChevronRight, ChevronDown, Activity, FileDown, Copy as CopyIcon
+  MoreVertical, Cog, Download, Plus,
+  ChevronRight, ChevronDown, Activity
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
@@ -254,45 +254,7 @@ export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClos
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center gap-2 mb-5">
-        <button onClick={() => onNewBT(equipment)} className="btn-primary h-9 px-4 text-sm flex items-center gap-1.5">
-          <ClipboardList className="w-4 h-4" />
-          Nouveau BT
-        </button>
-        <button onClick={() => onEdit?.(equipment)} className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5">
-          <Pencil className="w-4 h-4" />
-          Modifier
-        </button>
-        <a
-          href={`${import.meta.env.VITE_API_URL}/equipments/${equipment.id}/pdf`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5"
-        >
-          <FileDown className="w-4 h-4" />
-          Exporter PDF
-        </a>
-        <button
-          onClick={async () => {
-            try {
-              const res = await fetch(`${import.meta.env.VITE_API_URL}/equipments/${equipment.id}/duplicate`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-              });
-              const json = await res.json();
-              if (json.success) {
-                window.location.reload();
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-          className="btn-secondary h-9 px-4 text-sm flex items-center gap-1.5"
-        >
-          <CopyIcon className="w-4 h-4" />
-          Dupliquer
-        </button>
-      </div>
+      <div className="flex items-center gap-2 mb-5" />
 
       {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -328,10 +290,10 @@ export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClos
           <h3 className="text-sm font-semibold text-text-primary mb-3">Caractéristiques</h3>
           <div className="flex flex-col">
             <InfoRow label="Type" value={equipment.type} />
-            <InfoRow label="Capacité" value="—" />
-            <InfoRow label="Alimentation" value="400V / 250kW" />
-            <InfoRow label="Dimensions" value="4.2m x 2.1m x 3.5m" />
-            <InfoRow label="Poids" value="12,400 kg" />
+            <InfoRow label="Alimentation" value={equipment.alimentation ?? '—'} />
+            <InfoRow label="Dimensions" value={equipment.dimensions ?? '—'} />
+            <InfoRow label="Zone ATEX" value={equipment.isAtex ? 'Oui' : 'Non'} />
+            <InfoRow label="Contact alimentaire" value={equipment.contactAlimentaire ? 'Oui' : 'Non'} />
 
           </div>
         </motion.div>
@@ -361,8 +323,7 @@ export function EquipmentDetail({ equipment, workOrders, preventivePlans, onClos
                 </span>
               }
             />
-            <InfoRow label="Compteur horaire" value="14,732 h" />
-            <InfoRow label="Coût arrêt/h" value="3,500 €" />
+            <InfoRow label="Compteur horaire" value={`${equipment.counterValue ?? 0} ${equipment.counterUnit ?? 'h'}`} />
           </div>
         </motion.div>
       </div>

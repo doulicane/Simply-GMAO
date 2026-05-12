@@ -54,6 +54,8 @@ import compteurReleveRoutes from './routes/compteurReleves';
 import importRoutes from './routes/import';
 import scadaRoutes from './routes/scada';
 import preferencesRoutes from './routes/preferences';
+import userRoutes from './routes/users';
+import lignesRoutes from './routes/lignes';
 
 // Jobs
 import { schedulePreventiveJob } from './jobs/preventiveGenerator';
@@ -246,6 +248,8 @@ app.use('/api/planning', planningRoutes);
 app.use('/api/checklist-templates', checklistRoutes);
 app.use('/api/atex', atexRoutes);
 app.use('/api/sous-ensembles', sousEnsembleRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/lignes', lignesRoutes);
 app.use('/api/compteur-releves', compteurReleveRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/v1', scadaRoutes);

@@ -433,7 +433,7 @@ export async function validateWorkOrder(id: string, user: any, _ipAddress?: stri
   }
 
   // Validation blocante ATEX
-  if (workOrder.equipment?.zoneAtex && workOrder.equipment.zoneAtex !== 'NON_ATEX') {
+  if (workOrder.equipment?.isAtex) {
     const atex = workOrder.atexIntervention;
     if (!atex || !atex.consignationEffectuee || !atex.permisDeFeu || !atex.outillageEx || !atex.nettoyageRealise || !atex.depressionRealise) {
       throw new AppError('Bloc ATEX incomplet. Toutes les cases doivent etre cochees.', 400);

@@ -655,7 +655,6 @@ function PMTaskDrawer({
               <button onClick={() => onGenerateBT(plan)} className="btn-primary flex-1 text-sm h-10">
                 Générer un BT
               </button>
-              <button className="btn-secondary text-sm h-10 px-3">Modifier</button>
               <button className="btn-ghost text-sm h-10 px-3 text-status-critical hover:bg-status-critical/10">Archiver</button>
             </div>
           </motion.div>

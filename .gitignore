@@ -38,3 +38,6 @@ npm-debug.log*
 # Misc
 *.tgz
 .cache/
+*.pem
+.env.backup
+rootCA.pem

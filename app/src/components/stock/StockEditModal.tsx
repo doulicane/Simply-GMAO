@@ -43,7 +43,6 @@ export function StockEditModal({ open, onClose, item }: Props) {
       setFournisseur(item.supplier ?? '');
       setError('');
       setSuccess(false);
-      setLoading(false);
     }
   }, [item]);
 

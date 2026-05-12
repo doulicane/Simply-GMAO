@@ -25,7 +25,7 @@ const STATUS_DOT_COLORS: Record<string, string> = {
   stopped: 'bg-status-neutral',
   maintenance: 'bg-status-warning',
   breakdown: 'bg-status-critical',
-  standby: 'bg-status-info',
+
 };
 
 const CRITICALITY_COLORS: Record<string, string> = {

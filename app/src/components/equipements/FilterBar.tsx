@@ -39,7 +39,7 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'stopped', label: 'Arrêté' },
   { value: 'maintenance', label: 'Maintenance' },
   { value: 'breakdown', label: 'En panne' },
-  { value: 'standby', label: 'En attente' },
+
 ];
 
 const ZONE_OPTIONS = [
@@ -172,7 +172,6 @@ export function FilterBar({
           )}
         </div>
 
-        <FilterDropdown value={filters.level} options={LEVEL_OPTIONS} onChange={(v) => onChange({ ...filters, level: v })} icon={Filter} />
         <FilterDropdown value={filters.zone} options={ZONE_OPTIONS} onChange={(v) => onChange({ ...filters, zone: v })} icon={MapPin} />
         <FilterDropdown value={filters.criticality} options={CRITICALITY_OPTIONS} onChange={(v) => onChange({ ...filters, criticality: v })} icon={Filter} />
         <FilterDropdown value={filters.status} options={STATUS_OPTIONS} onChange={(v) => onChange({ ...filters, status: v })} icon={Filter} />
@@ -188,7 +187,7 @@ export function FilterBar({
               key={mode}
               onClick={() => onViewModeChange(mode)}
               className={cn(
-                'p-1.5 rounded transition-colors',
+                'p-1.5 rounded transition-colors flex items-center justify-center',
                 viewMode === mode ? 'bg-accent-teal text-white' : 'text-text-muted hover:text-text-primary'
               )}
               aria-label={mode}

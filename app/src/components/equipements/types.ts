@@ -26,7 +26,7 @@ export type ViewMode = 'tree' | 'grid' | 'list';
 
 export type LevelFilter = 'all' | 'site' | 'zone' | 'line' | 'machine' | 'subAssembly';
 export type CriticalityFilter = 'all' | 'critique' | 'elevee' | 'moyenne' | 'faible';
-export type StatusFilter = 'all' | 'running' | 'stopped' | 'maintenance' | 'breakdown' | 'standby';
+export type StatusFilter = 'all' | 'running' | 'stopped' | 'maintenance' | 'breakdown';
 
 export interface EquipmentFilters {
   search: string;
@@ -63,15 +63,13 @@ export const STATUS_LABELS: Record<EquipmentStatus, string> = {
   stopped: 'Arrêté',
   maintenance: 'Maintenance',
   breakdown: 'En panne',
-  standby: 'En attente',
 };
 
-export const STATUS_VARIANTS: Record<EquipmentStatus, 'ok' | 'warning' | 'critical' | 'info' | 'neutral'> = {
+export const STATUS_VARIANTS: Record<EquipmentStatus, 'ok' | 'warning' | 'critical' | 'neutral'> = {
   running: 'ok',
   stopped: 'neutral',
   maintenance: 'warning',
   breakdown: 'critical',
-  standby: 'info',
 };
 
 export const SUB_ASSEMBLIES: SubAssembly[] = [];

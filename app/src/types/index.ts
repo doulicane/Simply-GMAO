@@ -9,7 +9,7 @@ export interface User {
   email: string;
 }
 
-export type EquipmentStatus = 'running' | 'stopped' | 'maintenance' | 'breakdown' | 'standby';
+export type EquipmentStatus = 'running' | 'stopped' | 'maintenance' | 'breakdown';
 export type EquipmentType = 'presse' | 'laquage' | 'serigraphie' | 'recuit' | 'compresseur' | 'depoussiereur' | 'emballage' | 'four' | 'decoupe' | 'convoyeur' | 'ventilation' | 'ecluse' | 'electricite' | 'manutention' | 'traitementEau' | 'metrologie' | 'controleQualite' | 'autre';
 export type Criticality = 'critique' | 'elevee' | 'moyenne' | 'faible';
 
@@ -22,6 +22,7 @@ export interface Equipment {
   criticality: Criticality;
   line: string;
   location: string;
+  ligneId?: string;
   manufacturer?: string;
   model?: string;
   serialNumber?: string;
@@ -33,6 +34,17 @@ export interface Equipment {
   availability?: number;
   qrCode?: string;
   notes?: string;
+  isAtex?: boolean;
+  contactAlimentaire?: boolean;
+  dateDerniereInspectionAtex?: string;
+  dateProchaineInspectionAtex?: string;
+  counterValue?: number;
+  counterUnit?: string;
+  capacite?: string;
+  alimentation?: string;
+  dimensions?: string;
+  poids?: string;
+  coutArretHeure?: number;
 }
 
 export type WorkOrderStatus = 'draft' | 'planned' | 'in_progress' | 'waiting_parts' | 'completed' | 'closed' | 'cancelled';

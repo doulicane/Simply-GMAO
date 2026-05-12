@@ -139,7 +139,7 @@ router.post(
       const { password } = req.body;
 
       const wo = await checkWorkOrderExists(id);
-      if (wo.equipment?.zoneAtex === 'NON_ATEX') {
+      if (!wo.equipment?.isAtex) {
         throw new AppError('Cet equipement n\'est pas en zone ATEX', 400);
       }
 

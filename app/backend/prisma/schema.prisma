@@ -58,13 +58,6 @@ enum EquipmentStatus {
   HORS_SERVICE
 }
 
-enum AtexZone {
-  ZONE_20
-  ZONE_21
-  ZONE_22
-  NON_ATEX
-}
-
 enum StockMovementType {
   ENTREE
   SORTIE
@@ -189,12 +182,18 @@ model Equipment {
   localisation      String?
   ligneId           String?              @map("ligne_id")
   contactAlimentaire Boolean             @default(false) @map("contact_alimentaire")
-  zoneAtex          AtexZone             @default(NON_ATEX) @map("zone_atex")
+  isAtex            Boolean              @default(false) @map("is_atex")
   dateDerniereInspectionAtex DateTime?   @map("date_derniere_inspection_atex")
   dateProchaineInspectionAtex DateTime?  @map("date_prochaine_inspection_atex")
   dateAchat         DateTime?            @map("date_achat")
   numSerie          String?              @map("num_serie")
   constructeur      String?
+  model             String?              @map("model")
+  capacite          String?              @map("capacite")
+  alimentation      String?              @map("alimentation")
+  dimensions        String?              @map("dimensions")
+  poids             String?              @map("poids")
+  coutArretHeure    Decimal?             @default(0) @map("cout_arret_heure") @db.Decimal(10, 2)
   dateMiseService   DateTime?            @map("date_mise_service")
   statut            EquipmentStatus      @default(EN_SERVICE)
   compteurActuel    Decimal?             @default(0) @map("compteur_actuel") @db.Decimal(15, 2)

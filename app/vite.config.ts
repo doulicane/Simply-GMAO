@@ -2,6 +2,7 @@ import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import { inspectAttr } from 'plugin-inspect-react-code'
+
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
@@ -66,6 +67,7 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    host: '0.0.0.0',
   },
   resolve: {
     alias: {

@@ -54,11 +54,23 @@ interface BackendEquipment {
   type: string;
   statut: string;
   criticality: string;
-  ligne?: { name: string; zone?: { name: string } };
+  ligne?: { id: string; name: string; zone?: { name: string } };
   localisation?: string;
   constructeur?: string;
+  model?: string;
+  capacite?: string;
+  alimentation?: string;
+  dimensions?: string;
+  poids?: string;
+  coutArretHeure?: number | string;
   numSerie?: string;
   dateMiseService?: string;
+  dateDerniereInspectionAtex?: string;
+  dateProchaineInspectionAtex?: string;
+  isAtex?: boolean;
+  contactAlimentaire?: boolean;
+  compteurActuel?: number | string;
+  compteurUnite?: string;
   qrCode?: string;
 }
 
@@ -71,8 +83,9 @@ const mapBackendEquipment = (eq: BackendEquipment): Equipment => ({
   criticality: mapCriticality(eq.criticality),
   line: eq.ligne?.name ?? '',
   location: eq.ligne?.zone?.name ?? eq.localisation ?? '',
+  ligneId: eq.ligne?.id,
   manufacturer: eq.constructeur ?? undefined,
-  model: undefined,
+  model: eq.model ?? undefined,
   serialNumber: eq.numSerie ?? undefined,
   commissioningDate: eq.dateMiseService ? eq.dateMiseService.slice(0, 10) : undefined,
   lastMaintenanceDate: undefined,
@@ -82,6 +95,17 @@ const mapBackendEquipment = (eq: BackendEquipment): Equipment => ({
   availability: undefined,
   qrCode: eq.qrCode ?? undefined,
   notes: undefined,
+  isAtex: eq.isAtex ?? false,
+  contactAlimentaire: eq.contactAlimentaire ?? false,
+  dateDerniereInspectionAtex: eq.dateDerniereInspectionAtex ? eq.dateDerniereInspectionAtex.slice(0, 10) : undefined,
+  dateProchaineInspectionAtex: eq.dateProchaineInspectionAtex ? eq.dateProchaineInspectionAtex.slice(0, 10) : undefined,
+  counterValue: eq.compteurActuel !== undefined ? Number(eq.compteurActuel) : undefined,
+  counterUnit: eq.compteurUnite ?? undefined,
+  capacite: eq.capacite ?? undefined,
+  alimentation: eq.alimentation ?? undefined,
+  dimensions: eq.dimensions ?? undefined,
+  poids: eq.poids ?? undefined,
+  coutArretHeure: eq.coutArretHeure !== undefined ? Number(eq.coutArretHeure) : undefined,
 });
 
 /* ------------------------------------------------------------------ */

@@ -63,7 +63,7 @@ export async function generateEquipmentPDF(data: {
     ['Statut', equipment.statut],
     ['Date mise en service', equipment.dateMiseService ? new Date(equipment.dateMiseService).toLocaleDateString('fr-FR') : '—'],
     ['Compteur', `${equipment.compteurActuel?.toString() || '0'} ${equipment.compteurUnite || ''}`],
-    ['Zone ATEX', equipment.zoneAtex || 'Non ATEX'],
+    ['Zone ATEX', equipment.isAtex ? 'Oui' : 'Non'],
     ['Contact alimentaire', equipment.contactAlimentaire ? 'Oui' : 'Non'],
   ];
 
@@ -173,7 +173,7 @@ export async function generateAtexCompliancePDF(equipments: any[], year: number)
   });
   y -= 22;
 
-  const atexEq = equipments.filter((e) => e.zoneAtex && e.zoneAtex !== 'NON_ATEX');
+  const atexEq = equipments.filter((e) => e.isAtex);
   for (const eq of atexEq) {
     const nextDate = eq.dateProchaineInspectionAtex ? new Date(eq.dateProchaineInspectionAtex) : null;
     const isOverdue = nextDate ? nextDate < new Date() : false;
@@ -182,7 +182,7 @@ export async function generateAtexCompliancePDF(equipments: any[], year: number)
     const values = [
       eq.code,
       eq.name,
-      eq.zoneAtex,
+      eq.isAtex ? 'Oui' : 'Non',
       eq.dateDerniereInspectionAtex ? new Date(eq.dateDerniereInspectionAtex).toLocaleDateString('fr-FR') : '—',
       nextDate ? nextDate.toLocaleDateString('fr-FR') : '—',
       status,

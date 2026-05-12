@@ -706,12 +706,6 @@ function StockPartDrawer({
                 Nouveau mouvement
               </button>
               <button
-                onClick={() => onEdit(item)}
-                className="text-sm h-10 px-4 rounded-lg font-medium text-[#0A0A0A] bg-[#FF8500] hover:bg-[#FF8500]/90 transition-colors"
-              >
-                Modifier
-              </button>
-              <button
                 onClick={() => onDelete(item)}
                 className="text-sm h-10 px-4 rounded-lg font-medium text-white bg-[#E63946] hover:bg-[#E63946]/90 transition-colors"
               >
