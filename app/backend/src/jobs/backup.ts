@@ -10,15 +10,13 @@
  */
 
 import { Queue, Worker, Job } from 'bullmq';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
 import fs from 'fs';
 import path from 'path';
 
-const execAsync = promisify(exec);
 const QUEUE_NAME = 'backup-daily';
 const CRON_EXPRESSION = env.BACKUP_CRON ?? '0 2 * * *'; // 02h00 par defaut
 
@@ -49,22 +47,31 @@ export const backupWorker = new Worker(
     }
 
     try {
-      // pg_dump via URL
-      await execAsync(
-        `pg_dump "${dbUrl}" | gzip > "${dumpFile}"`,
-        { timeout: 300000 }
-      );
-      logger.info(`[BackupJob] Dump cree : ${dumpFile}`);
+      // pg_dump via spawn (pas d'injection shell possible)
+      await new Promise<void>((resolve, reject) => {
+        const pgDump = spawn('pg_dump', [dbUrl], { timeout: 300000 });
+        const gzip = spawn('gzip', { timeout: 300000 });
+        const dumpStream = fs.createWriteStream(dumpFile);
 
-      // Sauvegarde des uploads (rsync-like avec cp -r)
+        pgDump.stdout.pipe(gzip.stdin);
+        gzip.stdout.pipe(dumpStream);
+
+        pgDump.on('error', reject);
+        gzip.on('error', reject);
+        dumpStream.on('error', reject);
+
+        dumpStream.on('finish', () => {
+          logger.info(`[BackupJob] Dump cree : ${dumpFile}`);
+          resolve();
+        });
+      });
+
+      // Sauvegarde des uploads (copie recursive Node — pas de shell)
       const uploadsBackupDir = path.join(backupDir, 'uploads');
       if (!fs.existsSync(uploadsBackupDir)) {
         fs.mkdirSync(uploadsBackupDir, { recursive: true });
       }
-      await execAsync(
-        `cp -r "${uploadDir}/." "${uploadsBackupDir}/"`,
-        { timeout: 120000 }
-      );
+      fs.cpSync(uploadDir, uploadsBackupDir, { recursive: true, force: true });
       logger.info('[BackupJob] Uploads copies.');
 
       // Rotation : garder 7 jours de dumps

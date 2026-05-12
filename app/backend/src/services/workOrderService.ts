@@ -574,11 +574,17 @@ export async function consumePartsOnWorkOrder(
     throw new AppError('Article introuvable ou inactif', 404);
   }
 
-  if (data.quantite > Number(item.quantite)) {
-    throw new AppError(`Stock insuffisant. Disponible : ${item.quantite}`, 400);
-  }
-
   const movement = await prisma.$transaction(async (tx) => {
+    const lockedItem = await tx.stockItem.findUnique({
+      where: { id: data.stockItemId },
+    });
+    if (!lockedItem || !lockedItem.active) {
+      throw new AppError('Article introuvable ou inactif', 404);
+    }
+    if (data.quantite > Number(lockedItem.quantite)) {
+      throw new AppError(`Stock insuffisant. Disponible : ${lockedItem.quantite}`, 400);
+    }
+
     const mov = await tx.stockMovement.create({
       data: {
         stockItemId: data.stockItemId,
@@ -592,7 +598,7 @@ export async function consumePartsOnWorkOrder(
 
     await tx.stockItem.update({
       where: { id: data.stockItemId },
-      data: { quantite: Number(item.quantite) - data.quantite },
+      data: { quantite: { decrement: data.quantite } },
     });
 
     return mov;

@@ -4,7 +4,7 @@
  * =============================================================================
  * Centralise l'URL de l'API et les helpers de requete.
  * Gestion uniforme des erreurs avec toasts Sonner.
- * Rafraichissement automatique du token sur 401 (monkey-patch fetch).
+ * Rafraichissement automatique du token sur 401 via ApiClient.
  * =============================================================================
  */
 
@@ -50,7 +50,8 @@ export function handleApiError(response: Response, validationErrors?: Record<str
     case 401:
       toast.error(message);
       // Deconnexion automatique + redirection login
-      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
       window.location.href = '/#/login';
       break;
 
@@ -87,97 +88,98 @@ export function handleApiError(response: Response, validationErrors?: Record<str
 }
 
 /* ------------------------------------------------------------------ */
-//  Refresh token automatique (monkey-patch fetch)
+//  ApiClient — gestion du refresh token encapsulee (pas de monkey-patch)
 /* ------------------------------------------------------------------ */
 
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+class ApiClient {
+  private isRefreshing = false;
+  private refreshSubscribers: Array<(token: string) => void> = [];
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
-}
-
-function onTokenRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
-}
-
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) return null;
-  try {
-    const res = await _originalFetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    const json = await res.json();
-    if (json.success && json.data?.accessToken) {
-      localStorage.setItem('accessToken', json.data.accessToken);
-      // Mettre a jour le store Zustand
-      try {
-        const { useAuthStore } = await import('@/stores/authStore');
-        useAuthStore.setState({ accessToken: json.data.accessToken });
-      } catch {
-        // ignore
-      }
-      return json.data.accessToken;
-    }
-  } catch {
-    // ignore
+  private subscribeTokenRefresh(cb: (token: string) => void) {
+    this.refreshSubscribers.push(cb);
   }
-  return null;
-}
 
-if (!(window as any).__simplyGmaoOriginalFetch) {
-  (window as any).__simplyGmaoOriginalFetch = window.fetch;
-}
-const _originalFetch = (window as any).__simplyGmaoOriginalFetch;
+  private onTokenRefreshed(token: string) {
+    this.refreshSubscribers.forEach((cb) => cb(token));
+    this.refreshSubscribers = [];
+  }
 
-if (!(window as any).__simplyGmaoFetchPatched) {
-  (window as any).__simplyGmaoFetchPatched = true;
-  window.fetch = async function (...args) {
-  const [url, options = {}] = args;
-  let response = await _originalFetch(url, options);
+  private async refreshAccessToken(): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // cookie HttpOnly contient le refreshToken
+      });
+      const json = await res.json();
+      if (json.success && json.data?.accessToken) {
+        localStorage.setItem('accessToken', json.data.accessToken);
+        // Mettre a jour le store Zustand
+        try {
+          const { useAuthStore } = await import('@/stores/authStore');
+          useAuthStore.setState({ accessToken: json.data.accessToken });
+        } catch {
+          // ignore
+        }
+        return json.data.accessToken;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
 
-  if (response.status === 401) {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      if (!isRefreshing) {
-        isRefreshing = true;
-        const newToken = await refreshAccessToken();
-        isRefreshing = false;
+  async request(url: string, options: RequestInit = {}): Promise<Response> {
+    const token = localStorage.getItem('accessToken');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) ?? {}),
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    let response = await fetch(url, { ...options, headers, credentials: 'include' });
+
+    if (response.status === 401) {
+      if (!this.isRefreshing) {
+        this.isRefreshing = true;
+        const newToken = await this.refreshAccessToken();
+        this.isRefreshing = false;
         if (newToken) {
-          onTokenRefreshed(newToken);
+          this.onTokenRefreshed(newToken);
           const baseHeaders =
             options.headers instanceof Headers
               ? Object.fromEntries(options.headers.entries())
               : { ...(options.headers ?? {}) };
-          return _originalFetch(url, {
+          return fetch(url, {
             ...options,
             headers: { ...baseHeaders, Authorization: `Bearer ${newToken}` },
+            credentials: 'include',
           });
         }
       } else {
         return new Promise<Response>((resolve, reject) => {
-          subscribeTokenRefresh((token) => {
+          this.subscribeTokenRefresh((token) => {
             const baseHeaders =
               options.headers instanceof Headers
                 ? Object.fromEntries(options.headers.entries())
                 : { ...(options.headers ?? {}) };
-            _originalFetch(url, {
+            fetch(url, {
               ...options,
               headers: { ...baseHeaders, Authorization: `Bearer ${token}` },
+              credentials: 'include',
             }).then(resolve, reject);
           });
         });
       }
     }
-  }
 
-  return response;
-};
+    return response;
+  }
 }
+
+const apiClient = new ApiClient();
 
 /**
  * Helper fetch avec headers JSON et auth par defaut
@@ -199,7 +201,7 @@ export async function apiFetch(
   }
 
   try {
-    const response = await fetch(url, { ...options, headers });
+    const response = await apiClient.request(url, { ...options, headers });
 
     if (!response.ok) {
       // Essayer d'extraire les erreurs de validation (422)

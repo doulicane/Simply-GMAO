@@ -1,10 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('admin', 12);
+  const rawPassword = process.env.ADMIN_INITIAL_PASSWORD || crypto.randomBytes(16).toString('hex');
+  const passwordHash = await bcrypt.hash(rawPassword, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@simply-gmao.fr' },
@@ -19,7 +21,8 @@ async function main() {
     },
   });
 
-  console.log(`✅ Admin créé : ${admin.email} / mot de passe : admin`);
+  console.log(`🔐 Mot de passe genere : ${rawPassword}`);
+  console.log(`✅ Admin cree : ${admin.email}`);
 }
 
 main()

@@ -26,6 +26,7 @@ import {
 import { validate } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 import {
   progressiveLockout,
   markLoginFailed,
@@ -43,11 +44,11 @@ const loginSchema = z.object({
 });
 
 const refreshSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token requis'),
+  refreshToken: z.string().optional(),
 });
 
 const logoutSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token requis'),
+  refreshToken: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,13 @@ router.post(
 
       logger.info(`Connexion reussie : ${user.email} (${user.role})`);
 
+      res.cookie('refreshToken', refresh.token, {
+        httpOnly: true,
+        secure: env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
       res.json({
         success: true,
         data: {
@@ -110,7 +118,6 @@ router.post(
             role: user.role,
           },
           accessToken: access.token,
-          refreshToken: refresh.token,
         },
       });
     } catch (err) {
@@ -127,20 +134,23 @@ router.post(
   validate(logoutSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { refreshToken } = req.body;
+      const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
       try {
-        const decoded = verifyToken(refreshToken);
-        if (decoded.type === 'refresh') {
-          // Blacklist le refresh token dans Redis
-          await blacklistRefreshToken(decoded.userId, decoded.jti);
-          logger.info(`Deconnexion : refresh token blackliste pour ${decoded.userId}`);
+        if (refreshToken) {
+          const decoded = verifyToken(refreshToken);
+          if (decoded.type === 'refresh') {
+            // Blacklist le refresh token dans Redis
+            await blacklistRefreshToken(decoded.userId, decoded.jti);
+            logger.info(`Deconnexion : refresh token blackliste pour ${decoded.userId}`);
+          }
         }
       } catch {
         // Token invalide ou expire : on ignore, la deconnexion se fait quand meme cote client
         logger.warn('Deconnexion avec refresh token invalide');
       }
 
+      res.clearCookie('refreshToken');
       res.json({
         success: true,
         message: 'Deconnexion reussie',
@@ -159,7 +169,10 @@ router.post(
   validate(refreshSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { refreshToken } = req.body;
+      const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+      if (!refreshToken) {
+        throw new AppError('Refresh token manquant', 401);
+      }
 
       // Verification du refresh token
       const decoded = verifyToken(refreshToken);

@@ -22,7 +22,10 @@ import { emitToRole } from '../socket';
 
 const router = Router();
 
-const SCADA_API_KEY = process.env.SCADA_API_KEY || 'scada-dev-key-change-in-prod';
+const SCADA_API_KEY = process.env.SCADA_API_KEY;
+if (!SCADA_API_KEY) {
+  throw new Error('[SCADA] SCADA_API_KEY est obligatoire. L\'application ne peut pas demarrer.');
+}
 
 // Middleware d'authentification API key
 function scadaAuth(req: Request, _res: Response, next: NextFunction): void {

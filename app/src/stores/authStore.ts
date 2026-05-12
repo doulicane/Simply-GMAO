@@ -59,11 +59,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
       const json = await res.json();
       if (json.success) {
-        const { accessToken, refreshToken, user } = json.data;
-        localStorage.setItem('refreshToken', refreshToken);
+        const { accessToken, user } = json.data;
         localStorage.setItem('accessToken', accessToken);
         const mappedUser = mapBackendUser(user);
         localStorage.setItem('user', JSON.stringify(mappedUser));
@@ -89,6 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
       });
       const json = await res.json();
       if (json.success) {
@@ -102,19 +103,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      try {
-        await fetch(`${API_URL}/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        // ignore — la deconnexion se fait quand meme cote client
-      }
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+    } catch {
+      // ignore — la deconnexion se fait quand meme cote client
     }
-    localStorage.removeItem('refreshToken');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     set({ user: null, isAuthenticated: false, accessToken: null });

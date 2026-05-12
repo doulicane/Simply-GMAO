@@ -19,7 +19,9 @@ import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import fs from 'fs';
+import path from 'path';
 
 // DOIT etre importe en premier pour valider l'environnement
 import { env } from './config/env';
@@ -27,7 +29,7 @@ import { prisma, disconnectDatabase } from './config/database';
 import { redisClient, disconnectRedis } from './config/redis';
 import { logger } from './utils/logger';
 import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler';
-import { runWithContext } from './utils/asyncContext';
+import { authenticate } from './middleware/auth';
 import { swaggerSpec } from './config/swagger';
 import swaggerUi from 'swagger-ui-express';
 import { initSocket } from './socket';
@@ -129,24 +131,31 @@ app.use('/api/reports', exportLimiter);
 // ---------------------------------------------------------------------------
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser(env.JWT_SECRET));
 
 // ---------------------------------------------------------------------------
-// Contexte de requete pour AsyncLocalStorage (audit trail)
+// Servir les fichiers uploads — protege par authentification
 // ---------------------------------------------------------------------------
-app.use((req, _res, next) => {
-  runWithContext(
-    {
-      userId: (req as any).user?.id,
-      ipAddress: req.ip ?? req.socket.remoteAddress ?? undefined,
-    },
-    () => next()
-  );
+app.get('/uploads/:filename', authenticate, async (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(env.UPLOAD_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: 'Fichier introuvable' });
+      return;
+    }
+    const resolvedPath = path.resolve(filePath);
+    const resolvedUploadDir = path.resolve(env.UPLOAD_DIR);
+    if (!resolvedPath.startsWith(resolvedUploadDir)) {
+      res.status(403).json({ error: 'Acces refuse' });
+      return;
+    }
+    res.sendFile(resolvedPath);
+    return;
+  } catch (err) {
+    next(err);
+  }
 });
-
-// ---------------------------------------------------------------------------
-// Servir les fichiers uploads statiques
-// ---------------------------------------------------------------------------
-app.use('/uploads', express.static(env.UPLOAD_DIR));
 
 // ---------------------------------------------------------------------------
 // Swagger UI — Documentation API
