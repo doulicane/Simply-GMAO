@@ -2,13 +2,15 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Clock, MapPin, User, Wrench, AlertTriangle,
+  Clock, MapPin, User, Wrench, AlertTriangle, LayoutTemplate,
 } from 'lucide-react';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
+import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { useWorkOrders, useUpdateWorkOrderStatus } from '@/hooks/useWorkOrders';
 import { cn } from '@/lib/utils';
-import type { WorkOrder, PreventivePlan } from '@/types';
+import type { WorkOrder, PreventivePlan, WorkOrderStatus } from '@/types';
 
-type ViewMode = 'week' | 'month';
+type ViewMode = 'week' | 'month' | 'kanban';
 
 /* ─── Types ─── */
 interface CalendarEvent {
@@ -77,8 +79,11 @@ export default function Planification() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const workOrders: any[] = [];
+  const { data: workOrdersData = [] } = useWorkOrders();
   const preventivePlans: any[] = [];
+  const updateStatus = useUpdateWorkOrderStatus();
+
+  const workOrders = workOrdersData as WorkOrder[];
 
   /* ── Build events ── */
   const events = useMemo<CalendarEvent[]>(() => {
@@ -191,6 +196,16 @@ export default function Planification() {
           >
             Mois
           </button>
+          <button
+            onClick={() => setViewMode('kanban')}
+            className={cn(
+              'h-7 px-3 rounded text-sm font-medium transition-colors flex items-center gap-1',
+              viewMode === 'kanban' ? 'bg-simply-gmao-green text-white shadow-sm' : 'text-simply-gmao-text-light hover:text-simply-gmao-text'
+            )}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5" />
+            Kanban
+          </button>
         </div>
       </div>
 
@@ -210,11 +225,29 @@ export default function Planification() {
           getEventStyle={getEventStyle}
           onEventClick={setSelectedEvent}
         />
-      ) : (
+      ) : viewMode === 'month' ? (
         <MonthView
           currentDate={currentDate}
           events={events}
           onEventClick={setSelectedEvent}
+        />
+      ) : (
+        <KanbanBoard
+          workOrders={workOrders}
+          onMove={(id, status) => updateStatus.mutate({ id, status })}
+          onCardClick={(wo) => setSelectedEvent({
+            id: wo.id,
+            title: wo.title,
+            subtitle: wo.equipmentName,
+            type: wo.type === 'preventive' ? 'wo-preventive' : wo.type === 'safety' ? 'wo-safety' : 'wo-corrective',
+            date: wo.plannedStart ? new Date(wo.plannedStart) : new Date(),
+            duration: wo.duration ?? 1,
+            assignedTo: wo.assignedTo,
+            priority: wo.priority,
+            status: wo.status,
+            isAllDay: false,
+            data: wo,
+          })}
         />
       )}
 
