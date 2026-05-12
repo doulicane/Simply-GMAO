@@ -29,6 +29,7 @@ import { authenticate, authorize } from '../middleware/auth';
 import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../config/database';
+import { getOrSetCache, invalidateCache } from '../utils/cache';
 import {
   createWorkOrder,
   listWorkOrders,
@@ -140,9 +141,11 @@ router.get(
   validate(woQuerySchema, 'query'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await listWorkOrders(
-        req.query,
-        req.user!
+      const cacheKey = `workorders:list:${JSON.stringify(req.query)}:${req.user!.id}`;
+      const result = await getOrSetCache(
+        cacheKey,
+        () => listWorkOrders(req.query, req.user!),
+        300
       );
 
       res.json({
@@ -193,6 +196,7 @@ router.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const workOrder = await getWorkOrderById(req.params.id);
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: workOrder });
     } catch (err) {
       next(err);
@@ -216,6 +220,7 @@ router.put(
         req.user!
       );
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: workOrder, message: 'Bon de travail modifie' });
     } catch (err) {
       next(err);
@@ -234,6 +239,7 @@ router.delete(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       await deleteWorkOrder(req.params.id, req.user!);
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, message: 'Bon de travail supprime avec succes' });
     } catch (err) {
       next(err);
@@ -252,6 +258,7 @@ router.post(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const restored = await restoreWorkOrder(req.params.id, req.user!);
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: restored, message: 'Bon de travail restaure avec succes' });
     } catch (err) {
       next(err);
@@ -278,6 +285,7 @@ router.put(
         req.ip ?? undefined
       );
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: `Statut mis a jour : ${newStatus}` });
     } catch (err) {
       next(err);
@@ -303,6 +311,7 @@ router.put(
         req.user!
       );
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: 'Technicien affecte avec succes' });
     } catch (err) {
       next(err);
@@ -326,6 +335,7 @@ router.post(
         req.ip ?? undefined
       );
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: 'Intervention demarree' });
     } catch (err) {
       next(err);
@@ -352,6 +362,7 @@ router.post(
 
       broadcastEvent('workorder:completed', { id: updated.id, numero: updated.numero, equipmentId: updated.equipmentId, status: updated.status });
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: 'Intervention terminee' });
     } catch (err) {
       next(err);
@@ -377,6 +388,7 @@ router.post(
 
       broadcastEvent('workorder:completed', { id: updated.id, numero: updated.numero, equipmentId: updated.equipmentId, status: updated.status });
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: 'Bon de travail valide et cloture' });
     } catch (err) {
       next(err);
@@ -405,6 +417,7 @@ router.post(
         req.ip ?? undefined
       );
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: 'Bon de travail rouvert' });
     } catch (err) {
       next(err);
@@ -432,6 +445,7 @@ router.post(
         req.user!
       );
 
+      await invalidateCache('workorders:list:*');
       res.json({ success: true, data: updated, message: 'Photos ajoutees' });
     } catch (err) {
       next(err);
@@ -461,6 +475,7 @@ router.post(
         req.user!
       );
 
+      await invalidateCache('workorders:list:*');
       res.status(201).json({ success: true, data: movement, message: 'Pieces consommees' });
     } catch (err) {
       next(err);
@@ -500,6 +515,7 @@ router.post(
         include: { equipment: true, demandeur: true },
       });
 
+      await invalidateCache('workorders:list:*');
       res.status(201).json({ success: true, data: duplicated, message: 'BT duplique' });
     } catch (err) {
       next(err);

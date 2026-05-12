@@ -41,6 +41,7 @@ const envSchema = z.object({
   BACKUP_CRON: z.string().default('0 2 * * *'),
   BACKUP_DIR: z.string().default('/backups'),
   STOCK_ALERT_CRON: z.string().default('0 8 * * *'),
+  SCADA_API_KEY: z.string().min(16, 'SCADA_API_KEY doit faire au moins 16 caracteres').optional(),
 });
 
 // ---------------------------------------------------------------------------

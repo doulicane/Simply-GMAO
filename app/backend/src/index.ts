@@ -77,7 +77,20 @@ const NODE_ENV = env.NODE_ENV;
 
 // Helmet — headers de securite
 app.use(helmet({
-  contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // necessaire pour Vite en dev
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // necessaire pour Vite HMR
 }));
 
 // CORS strict — jamais '*' meme en dev
@@ -165,9 +178,13 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 // ---------------------------------------------------------------------------
-// Healthcheck approfondi
+// Healthcheck public (minimal) + Healthcheck detaille (authentifie)
 // ---------------------------------------------------------------------------
-app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
+app.get('/api/health', (_req: Request, res: Response): void => {
+  res.json({ status: 'UP', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health/detailed', authenticate, async (_req: Request, res: Response): Promise<void> => {
   const timestamp = new Date().toISOString();
   const checks: Record<string, { status: 'UP' | 'DOWN'; responseTimeMs?: number; freeSpaceGb?: number; error?: string }> = {};
   let overallStatus: 'UP' | 'DOWN' = 'UP';
@@ -202,15 +219,13 @@ app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
     overallStatus = 'DOWN';
   }
 
-  const responseBody = {
+  res.status(overallStatus === 'DOWN' ? 503 : 200).json({
     status: overallStatus,
     timestamp,
     version: '1.0.0',
     services: checks,
     uptime: Math.floor(process.uptime()),
-  };
-
-  res.status(overallStatus === 'DOWN' ? 503 : 200).json(responseBody);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -38,6 +38,10 @@ const basePrisma = globalThis.prisma ?? new PrismaClient({
     env.NODE_ENV === 'development'
       ? ['query', 'info', 'warn', 'error']
       : ['error'],
+  transactionOptions: {
+    maxWait: 5000,
+    timeout: 10000,
+  },
 });
 
 // En mode dev, stocker dans globalThis pour eviter duplication HMR

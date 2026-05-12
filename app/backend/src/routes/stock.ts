@@ -17,6 +17,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Role, StockMovementType } from '@prisma/client';
 import { prisma } from '../config/database';
+import { getOrSetCache, invalidateCache } from '../utils/cache';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } from '../middleware/validation';
 import { AppError } from '../middleware/errorHandler';
@@ -86,13 +87,18 @@ router.get(
 
       const orderBy: any = sortBy ? { [sortBy]: order } : { name: 'asc' };
 
-      const result = await paginate({
-        page,
-        limit,
-        model: prisma.stockItem,
-        where,
-        orderBy,
-      });
+      const cacheKey = `stock:list:${JSON.stringify(req.query)}`;
+      const result = await getOrSetCache(
+        cacheKey,
+        () => paginate({
+          page,
+          limit,
+          model: prisma.stockItem,
+          where,
+          orderBy,
+        }),
+        300
+      );
 
       res.json({
         success: true,
@@ -149,6 +155,7 @@ router.post(
       }
 
       logger.info(`Article cree : ${item.code} par ${req.user!.email}`);
+      await invalidateCache('stock:list:*');
 
       res.status(201).json({ success: true, data: item, message: 'Article cree' });
     } catch (err) {
@@ -245,6 +252,7 @@ router.post(
       });
 
       logger.info(`Mouvement ${type} : ${quantite} x ${item.code} par ${req.user!.email}`);
+      await invalidateCache('stock:list:*');
 
       res.status(201).json({
         success: true,
@@ -444,6 +452,7 @@ router.put(
       });
 
       logger.info(`Article modifie : ${item.code} par ${req.user!.email}`);
+      await invalidateCache('stock:list:*');
 
       res.json({ success: true, data: item, message: 'Article modifie' });
     } catch (err) {
@@ -475,6 +484,7 @@ router.delete(
       });
 
       logger.info(`Article supprime (soft) : ${existing.code} par ${req.user!.email}`);
+      await invalidateCache('stock:list:*');
 
       res.json({
         success: true,

@@ -22,6 +22,7 @@ import { validate, validateRequest, paginationQuerySchema, uuidParamSchema } fro
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import { paginate } from '../utils/pagination';
+import { getOrSetCache, invalidateCache } from '../utils/cache';
 import QRCode from 'qrcode';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { generateEquipmentPDF } from '../services/pdfService';
@@ -98,25 +99,30 @@ router.get(
 
       const orderBy: any = sortBy ? { [sortBy]: order } : { createdAt: 'desc' };
 
-      const result = await paginate({
-        page,
-        limit,
-        model: prisma.equipment,
-        where,
-        orderBy,
-        include: {
-          ligne: {
-            include: {
-              zone: {
-                include: { site: true },
+      const cacheKey = `equipments:list:${JSON.stringify(req.query)}`;
+      const result = await getOrSetCache(
+        cacheKey,
+        () => paginate({
+          page,
+          limit,
+          model: prisma.equipment,
+          where,
+          orderBy,
+          include: {
+            ligne: {
+              include: {
+                zone: {
+                  include: { site: true },
+                },
               },
             },
+            _count: {
+              select: { workOrders: true, documents: true },
+            },
           },
-          _count: {
-            select: { workOrders: true, documents: true },
-          },
-        },
-      });
+        }),
+        300
+      );
 
       res.json({
         success: true,
@@ -228,6 +234,7 @@ router.post(
       });
 
       logger.info(`Equipement cree : ${equipment.code} par ${req.user!.email}`);
+      await invalidateCache('equipments:list:*');
 
       res.status(201).json({
         success: true,
@@ -290,6 +297,7 @@ router.put(
       });
 
       logger.info(`Equipement modifie : ${equipment.code} par ${req.user!.email}`);
+      await invalidateCache('equipments:list:*');
 
       res.json({
         success: true,
@@ -325,6 +333,7 @@ router.delete(
       });
 
       logger.info(`Equipement supprime (soft) : ${existing.code} par ${req.user!.email}`);
+      await invalidateCache('equipments:list:*');
 
       res.json({
         success: true,
@@ -363,6 +372,7 @@ router.post(
       });
 
       logger.info(`Equipement restaure : ${equipment.code} par ${req.user!.email}`);
+      await invalidateCache('equipments:list:*');
 
       res.json({
         success: true,
@@ -633,6 +643,7 @@ router.post(
       }
 
       logger.info(`Equipement duplique : ${original.code} -> ${newCode} par ${req.user!.email}`);
+      await invalidateCache('equipments:list:*');
       res.status(201).json({ success: true, data: duplicated, message: 'Equipement duplique' });
     } catch (err) {
       next(err);
