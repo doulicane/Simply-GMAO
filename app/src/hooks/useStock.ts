@@ -16,7 +16,23 @@ export interface StockItemDetail extends StockItem {
   movements: StockMovement[];
 }
 
-const mapBackendStock = (item: any): StockItem => ({
+interface BackendStockItem {
+  id: string;
+  code: string;
+  name: string;
+  famille?: string;
+  sousFamille?: string;
+  designation?: string;
+  quantite?: number;
+  stockMinimum?: number;
+  stockMaximum?: number;
+  unite?: string;
+  localisation?: string;
+  prixUnitaire?: number;
+  fournisseur?: string;
+}
+
+const mapBackendStock = (item: BackendStockItem): StockItem => ({
   id: item.id,
   code: item.code,
   name: item.name,
@@ -58,7 +74,16 @@ export function useStockItem(id: string) {
     queryFn: async () => {
       const json = await fetchAPI(`/stock/${id}`);
       const item = mapBackendStock(json.data);
-      const movements: StockMovement[] = (json.data.stockMovements ?? []).map((m: any) => ({
+      interface BackendMovement {
+        id: string;
+        type: StockMovement['type'];
+        quantite: number;
+        date: string;
+        commentaire?: string;
+        utilisateur?: { id: string; firstName: string; lastName: string };
+        workOrder?: { id: string; numero: string };
+      }
+      const movements: StockMovement[] = (json.data.stockMovements ?? []).map((m: BackendMovement) => ({
         id: m.id,
         type: m.type,
         quantite: Number(m.quantite),
@@ -134,7 +159,7 @@ export function useStockMovements() {
     queryFn: async () => {
       const json = await fetchAPI('/stock/movements?limit=100');
       const raw = Array.isArray(json.data) ? json.data : (json.data?.items ?? []);
-      return raw.map((m: any) => ({
+      return raw.map((m: BackendMovement) => ({
         id: m.id,
         type: m.type,
         quantite: Number(m.quantite),

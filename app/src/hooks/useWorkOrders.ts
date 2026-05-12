@@ -3,6 +3,27 @@ import { fetchAPI } from '@/lib/api';
 import type { WorkOrder, WorkOrderStatus } from '@/types';
 import { mapBackendWO } from '@/stores/mappers';
 
+interface BackendWorkOrder {
+  id: string;
+  numero: string;
+  title: string;
+  description?: string;
+  type: string;
+  status: string;
+  priority: string;
+  equipmentId: string;
+  equipment?: { name: string };
+  demandeur?: { firstName: string; lastName: string };
+  technicien?: { firstName: string; lastName: string };
+  dateCreation: string;
+  datePlanifiee?: string;
+  dateDebut?: string;
+  dateFin?: string;
+  dureeMinutes?: number;
+  coutMainOeuvre?: number;
+  piecesConsommees?: unknown;
+}
+
 /* ------------------------------------------------------------------ */
 //  Hooks
 /* ------------------------------------------------------------------ */

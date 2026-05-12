@@ -47,7 +47,7 @@ export function useDashboardAlerts() {
       const alertData = json.success ? json.data : {};
 
       const mappedAlerts: AlertItem[] = [
-        ...(alertData.urgentWorkOrders ?? []).map((wo: any) => ({
+        ...(alertData.urgentWorkOrders ?? []).map((wo: { id: string; equipment?: { name: string }; equipmentId: string; title: string; dateCreation: string }) => ({
           id: `urg-${wo.id}`,
           type: 'breakdown' as const,
           title: `${wo.equipment?.name ?? 'Equipement'} — Urgent`,
@@ -58,7 +58,7 @@ export function useDashboardAlerts() {
           createdAt: wo.dateCreation,
           acknowledged: false,
         })),
-        ...(alertData.overdueWorkOrders ?? []).map((wo: any) => ({
+        ...(alertData.overdueWorkOrders ?? []).map((wo: { id: string; equipment?: { name: string }; equipmentId: string; title: string; dateCreation: string }) => ({
           id: `ovd-${wo.id}`,
           type: 'overdue_pm' as const,
           title: `BT en retard — ${wo.equipment?.name ?? ''}`,
@@ -69,7 +69,7 @@ export function useDashboardAlerts() {
           createdAt: wo.dateCreation,
           acknowledged: false,
         })),
-        ...(alertData.lowStockItems ?? []).map((item: any) => ({
+        ...(alertData.lowStockItems ?? []).map((item: { id: string; name: string; quantite: number; stockMinimum: number }) => ({
           id: `stk-${item.id}`,
           type: 'low_stock' as const,
           title: `Stock bas — ${item.name}`,
@@ -103,7 +103,20 @@ export function useDashboardUpcomingPMs() {
     queryFn: async () => {
       const json = await fetchAPI('/dashboard/upcoming-preventive?days=30');
       const raw = json.success ? json.data : [];
-      return raw.map((p: any) => ({
+      interface BackendPreventivePlan {
+        id: string;
+        frequencyType: string;
+        frequencyValue: number;
+        title: string;
+        description?: string;
+        equipmentId: string;
+        equipment?: { name: string };
+        nextExecution?: string;
+        lastExecution?: string;
+        active: boolean;
+        checklist?: string;
+      }
+      return raw.map((p: BackendPreventivePlan) => ({
         id: p.id,
         code: `${p.frequencyType}-${p.frequencyValue}`,
         title: p.title,

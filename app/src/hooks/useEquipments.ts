@@ -45,7 +45,22 @@ const mapCriticality = (c: string): Criticality => {
   }
 };
 
-const mapBackendEquipment = (eq: any): Equipment => ({
+interface BackendEquipment {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  statut: string;
+  criticality: string;
+  ligne?: { name: string; zone?: { name: string } };
+  localisation?: string;
+  constructeur?: string;
+  numSerie?: string;
+  dateMiseService?: string;
+  qrCode?: string;
+}
+
+const mapBackendEquipment = (eq: BackendEquipment): Equipment => ({
   id: eq.id,
   code: eq.code,
   name: eq.name,

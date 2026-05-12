@@ -3,7 +3,21 @@ import { fetchAPI } from '@/lib/api';
 import type { PreventivePlan } from '@/types';
 import { mapFrequency, isOverdue, parseChecklist } from '@/stores/mappers';
 
-const mapBackendPM = (p: any): PreventivePlan => ({
+interface BackendPreventivePlan {
+  id: string;
+  frequencyType: string;
+  frequencyValue: number;
+  title: string;
+  description?: string;
+  equipmentId: string;
+  equipment?: { name: string };
+  nextExecution?: string;
+  lastExecution?: string;
+  active: boolean;
+  checklist?: string;
+}
+
+const mapBackendPM = (p: BackendPreventivePlan): PreventivePlan => ({
   id: p.id,
   code: `${p.frequencyType}-${p.frequencyValue}`,
   title: p.title,
