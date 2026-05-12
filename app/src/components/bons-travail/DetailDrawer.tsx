@@ -4,11 +4,13 @@ import {
   X, Printer, CheckCircle, Play, Pause,
   Lock, Unlock, Wrench,
   Package, FileText, MessageSquare, User, Calendar,
+  Route,
 } from 'lucide-react';
 import type { WorkOrder, WorkOrderStatus } from '@/types';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { useUpdateWorkOrderStatus } from '@/hooks/useWorkOrders';
 import { StatusTimeline } from './StatusTimeline';
+import { WorkOrderStepTracker } from './WorkOrderStepTracker';
 import {
   STATUS_LABELS,
   STATUS_VARIANTS,
@@ -42,7 +44,7 @@ const STATUS_TRANSITIONS: Record<WorkOrderStatus, { label: string; next: WorkOrd
 
 export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
   const updateWorkOrderStatus = useUpdateWorkOrderStatus();
-  const [activeTab, setActiveTab] = useState<'info' | 'actions' | 'parts' | 'notes'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'tracking' | 'actions' | 'parts' | 'notes'>('info');
 
   if (!workOrder) return null;
 
@@ -54,6 +56,7 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
 
   const tabs = [
     { id: 'info' as const, label: 'Informations', icon: FileText },
+    { id: 'tracking' as const, label: 'Suivi', icon: Route },
     { id: 'actions' as const, label: 'Actions réalisées', icon: Wrench },
     { id: 'parts' as const, label: 'Pièces utilisées', icon: Package },
     { id: 'notes' as const, label: 'Commentaires', icon: MessageSquare },
@@ -74,10 +77,10 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
-        className="fixed top-0 right-0 bottom-0 w-full md:w-[560px] z-[200] bg-bg-elevated border-l border-[rgba(90,94,117,0.2)] flex flex-col shadow-card-hover"
+        className="fixed top-0 right-0 bottom-0 w-full md:w-[560px] z-[200] bg-bg-elevated border-l border-[rgba(90,94,117,0.2)] flex flex-col shadow-card-hover pt-[env(safe-area-inset-top)]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-14 px-5 border-b border-[rgba(90,94,117,0.2)] flex-shrink-0">
+        <div className="flex items-center justify-between min-h-14 px-5 border-b border-[rgba(90,94,117,0.2)] flex-shrink-0">
           <div className="flex items-center gap-3">
             <span className="font-mono text-base font-semibold text-text-primary">
               {workOrder.number}
@@ -142,6 +145,14 @@ export function DetailDrawer({ workOrder, onClose }: DetailDrawerProps) {
 
           {/* Tab content */}
           <div className="px-5 py-5">
+            {activeTab === 'tracking' && (
+              <WorkOrderStepTracker
+                workOrder={workOrder}
+                onStatusChange={handleStatusChange}
+                transitions={transitions}
+              />
+            )}
+
             {activeTab === 'info' && (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">

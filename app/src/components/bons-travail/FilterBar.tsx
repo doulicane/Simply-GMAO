@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  LayoutGrid, List, CalendarDays, Filter, X, Search, Download, Plus,
+  LayoutGrid, List, CalendarDays, Filter, X, Search, Download, Plus, Archive,
 } from 'lucide-react';
 import type { WorkOrderStatus, WorkOrderType, Priority } from '@/types';
 import {
@@ -17,6 +17,7 @@ export interface FilterState {
   statuses: WorkOrderStatus[];
   priorities: Priority[];
   types: WorkOrderType[];
+  showArchived: boolean;
 }
 
 interface FilterBarProps {
@@ -56,14 +57,15 @@ export function FilterBar({
   };
 
   const clearFilters = () => {
-    onFiltersChange({ search: '', statuses: [], priorities: [], types: [] });
+    onFiltersChange({ search: '', statuses: [], priorities: [], types: [], showArchived: false });
   };
 
   const hasActiveFilters =
     filters.statuses.length > 0 ||
     filters.priorities.length > 0 ||
     filters.types.length > 0 ||
-    filters.search.length > 0;
+    filters.search.length > 0 ||
+    filters.showArchived;
 
   const statusOptions: WorkOrderStatus[] = ['draft', 'planned', 'in_progress', 'waiting_parts', 'completed', 'closed'];
   const priorityOptions: Priority[] = ['P1', 'P2', 'P3', 'P4'];
@@ -105,6 +107,19 @@ export function FilterBar({
 
         {/* Right actions */}
         <div className="flex items-center gap-2 ml-auto">
+          {/* Toggle archived */}
+          <button
+            onClick={() => onFiltersChange({ ...filters, showArchived: !filters.showArchived })}
+            className={`h-9 px-3 rounded-md text-sm font-medium border transition-all flex items-center gap-1.5 ${
+              filters.showArchived
+                ? 'bg-accent-teal/10 border-accent-teal text-accent-teal'
+                : 'bg-transparent border-[rgba(90,94,117,0.3)] text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+            }`}
+            title="Afficher les BT clôturés"
+          >
+            <Archive className="w-4 h-4" />
+            <span className="hidden sm:inline">Archivés</span>
+          </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`h-9 px-3 rounded-md text-sm font-medium border transition-all flex items-center gap-1.5 ${

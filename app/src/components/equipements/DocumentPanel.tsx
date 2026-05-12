@@ -192,7 +192,7 @@ export function DocumentPanel({ equipmentId }: Props) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-[rgba(10,11,20,0.9)] backdrop-blur-sm flex flex-col"
+            className="fixed inset-0 z-[300] bg-[rgba(10,11,20,0.9)] backdrop-blur-sm flex flex-col pt-[env(safe-area-inset-top)]"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(90,94,117,0.2)]">

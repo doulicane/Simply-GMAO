@@ -46,7 +46,7 @@ export function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 z-50 bg-background/95 backdrop-blur-md border-b border-border">
+    <header className="fixed top-0 left-0 right-0 min-h-14 z-50 bg-background/95 backdrop-blur-md border-b border-border pt-[env(safe-area-inset-top)]">
       <div className="flex items-center justify-between h-full px-4 lg:px-6">
         {/* Left: Logo + mobile hamburger */}
         <div className="flex items-center gap-3">

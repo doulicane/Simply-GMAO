@@ -7,6 +7,7 @@
     "dev": "nodemon --exec ts-node --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:https": "npm run build && npm start",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

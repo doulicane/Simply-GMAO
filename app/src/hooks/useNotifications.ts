@@ -33,7 +33,9 @@ export function useNotifications() {
   const connect = useCallback(() => {
     if (!token || socketRef.current?.connected) return;
 
-    const wsUrl = API_URL.replace('/api', '');
+    const wsUrl = API_URL.startsWith('http')
+      ? API_URL.replace('/api', '')
+      : `${window.location.protocol}//${window.location.host}`;
     const socket = io(`${wsUrl}/notifications`, {
       auth: { token },
       transports: ['websocket', 'polling'],

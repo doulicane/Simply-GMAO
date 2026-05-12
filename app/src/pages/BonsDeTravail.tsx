@@ -29,6 +29,7 @@ export default function BonsDeTravail() {
     statuses: [],
     priorities: [],
     types: [],
+    showArchived: false,
   });
 
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
@@ -47,6 +48,13 @@ export default function BonsDeTravail() {
 
   const filteredWorkOrders = useMemo(() => {
     let result = [...workOrders];
+
+    // Gestion des BT clôturés (archivés)
+    if (filters.showArchived) {
+      result = result.filter((wo) => wo.status === 'closed');
+    } else {
+      result = result.filter((wo) => wo.status !== 'closed');
+    }
 
     if (filters.search) {
       const term = filters.search.toLowerCase();
@@ -116,47 +124,73 @@ export default function BonsDeTravail() {
       {/* Content area */}
       <div className="flex-1 min-h-0">
         <AnimatePresence mode="wait">
-          {filteredWorkOrders.length === 0 ? (
+          {filters.showArchived ? (
+            /* Vue Archives */
             <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center py-20 text-text-muted"
-            >
-              <Inbox className="w-12 h-12 mb-4" />
-              <p className="text-lg font-medium text-text-primary">Aucun bon de travail trouvé</p>
-              <p className="text-sm mt-1">Essayez de modifier vos filtres</p>
-            </motion.div>
-          ) : (
-            <motion.div
-              key={viewMode}
+              key="archives"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              {viewMode === 'kanban' && (
-                <KanbanBoard
-                  workOrders={filteredWorkOrders}
-                  onSelectWorkOrder={handleSelectWorkOrder}
-                  onCreateWorkOrder={handleCreateFromColumn}
-                  readOnly={isReadOnly}
-                />
-              )}
-              {viewMode === 'list' && (
+              {filteredWorkOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-text-muted">
+                  <Inbox className="w-12 h-12 mb-4" />
+                  <p className="text-lg font-medium text-text-primary">Aucun bon de travail archivé</p>
+                </div>
+              ) : (
                 <ListView
                   workOrders={filteredWorkOrders}
                   onSelectWorkOrder={handleSelectWorkOrder}
                 />
               )}
-              {viewMode === 'calendar' && (
-                <CalendarView
-                  workOrders={filteredWorkOrders}
-                  onSelectWorkOrder={handleSelectWorkOrder}
-                />
-              )}
             </motion.div>
+          ) : (
+            /* Vue normale */
+            <>
+              {filteredWorkOrders.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col items-center justify-center py-20 text-text-muted"
+                >
+                  <Inbox className="w-12 h-12 mb-4" />
+                  <p className="text-lg font-medium text-text-primary">Aucun bon de travail trouvé</p>
+                  <p className="text-sm mt-1">Essayez de modifier vos filtres</p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={viewMode}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {viewMode === 'kanban' && (
+                    <KanbanBoard
+                      workOrders={filteredWorkOrders}
+                      onSelectWorkOrder={handleSelectWorkOrder}
+                      onCreateWorkOrder={handleCreateFromColumn}
+                      readOnly={isReadOnly}
+                    />
+                  )}
+                  {viewMode === 'list' && (
+                    <ListView
+                      workOrders={filteredWorkOrders}
+                      onSelectWorkOrder={handleSelectWorkOrder}
+                    />
+                  )}
+                  {viewMode === 'calendar' && (
+                    <CalendarView
+                      workOrders={filteredWorkOrders}
+                      onSelectWorkOrder={handleSelectWorkOrder}
+                    />
+                  )}
+                </motion.div>
+              )}
+            </>
           )}
         </AnimatePresence>
       </div>

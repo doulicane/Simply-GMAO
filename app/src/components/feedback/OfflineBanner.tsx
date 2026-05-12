@@ -40,8 +40,8 @@ export function OfflineBanner() {
   return (
     <div
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-500 transition-all duration-500',
-        isOffline ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        'fixed left-0 right-0 z-40 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-500 transition-all duration-500',
+        isOffline ? 'top-[calc(3.5rem+env(safe-area-inset-top))] opacity-100' : 'top-[calc(3.5rem+env(safe-area-inset-top))] -translate-y-full opacity-0'
       )}
     >
       <WifiOff className="w-4 h-4" />

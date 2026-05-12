@@ -12,7 +12,6 @@ export const KANBAN_COLUMNS: KanbanColumn[] = [
   { id: 'planned', label: 'Planifi\u00e9', statuses: ['planned'], color: '#3B82F6' },
   { id: 'in_progress', label: 'En cours', statuses: ['in_progress', 'waiting_parts'], color: '#F59E0B' },
   { id: 'completed', label: 'Termin\u00e9', statuses: ['completed'], color: '#22C55E' },
-  { id: 'closed', label: 'Cl\u00f4tur\u00e9', statuses: ['closed'], color: '#22C55E' },
 ];
 
 export const STATUS_LABELS: Record<WorkOrderStatus, string> = {

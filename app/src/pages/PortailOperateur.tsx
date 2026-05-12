@@ -111,7 +111,7 @@ function getPriorityColor(p: Priority) {
 
 function MinimalHeader({ onBack, title, onLogout, showBack, onKiosk, kiosk }: { onBack: () => void; title: string; onLogout: () => void; showBack: boolean; onKiosk?: () => void; kiosk?: boolean }) {
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 z-50 bg-bg-elevated/95 backdrop-blur-md border-b border-[rgba(90,94,117,0.2)]">
+    <header className="fixed top-0 left-0 right-0 min-h-14 z-50 bg-bg-elevated/95 backdrop-blur-md border-b border-[rgba(90,94,117,0.2)] pt-[env(safe-area-inset-top)]">
       <div className="flex items-center justify-between h-full px-4">
         <div className="w-20">
           {showBack && (
@@ -197,7 +197,7 @@ function QRScannerOverlay({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[500] bg-bg-primary flex flex-col"
+          className="fixed inset-0 z-[500] bg-bg-primary flex flex-col pt-[env(safe-area-inset-top)]"
         >
           {/* Top bar */}
           <div className="flex items-center justify-between px-4 py-3">
@@ -456,7 +456,7 @@ export default function PortailOperateur() {
     <div className="h-[100dvh] flex flex-col bg-bg-primary overflow-hidden">
       <MinimalHeader onBack={handleBack} title="PORTAIL OPÉRATEUR" onLogout={handleLogout} showBack={step !== 'scan'} onKiosk={kiosk ? exitKiosk : enterKiosk} kiosk={kiosk} />
 
-      <main className="flex-1 pt-14 overflow-y-auto">
+      <main className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] overflow-y-auto">
         <OfflineBanner queueCount={offlineQueue.length} />
 
         <AnimatePresence mode="wait">

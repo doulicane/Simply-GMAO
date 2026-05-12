@@ -15,7 +15,8 @@
 
 import 'dotenv/config';
 import express, { Request, Response, Application } from 'express';
-import { createServer } from 'http';
+import { createServer as createHttpServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -77,12 +78,24 @@ const NODE_ENV = env.NODE_ENV;
 // Middlewares de securite
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Servir le frontend buildé (production)
+// ---------------------------------------------------------------------------
+const FRONTEND_BUILD_PATH = path.resolve(__dirname, '../../dist');
+if (fs.existsSync(FRONTEND_BUILD_PATH)) {
+  app.use(express.static(FRONTEND_BUILD_PATH));
+  // Fallback SPA — toutes les routes non-API renvoient index.html
+  app.get(/^\/(?!api\/|uploads\/).*/, (_req: Request, res: Response) => {
+    res.sendFile(path.join(FRONTEND_BUILD_PATH, 'index.html'));
+  });
+}
+
 // Helmet — headers de securite
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // necessaire pour Vite en dev
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
@@ -92,7 +105,7 @@ app.use(helmet({
       upgradeInsecureRequests: [],
     },
   },
-  crossOriginEmbedderPolicy: false, // necessaire pour Vite HMR
+  crossOriginEmbedderPolicy: false,
 }));
 
 // CORS strict — jamais '*' meme en dev
@@ -273,19 +286,36 @@ app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 // ---------------------------------------------------------------------------
-// Demarrage du serveur HTTP + WebSocket
+// Demarrage du serveur HTTPS ou HTTP + WebSocket
 // ---------------------------------------------------------------------------
-const httpServer = createServer(app);
-initSocket(httpServer);
+const HTTPS_KEY_PATH = process.env.HTTPS_KEY_PATH || path.resolve(__dirname, '../../192.168.1.22-key.pem');
+const HTTPS_CERT_PATH = process.env.HTTPS_CERT_PATH || path.resolve(__dirname, '../../192.168.1.22.pem');
 
-const server = httpServer.listen(PORT, '0.0.0.0', async () => {
+let server: ReturnType<typeof createHttpServer> | ReturnType<typeof createHttpsServer>;
+let protocol: string;
+
+if (fs.existsSync(HTTPS_KEY_PATH) && fs.existsSync(HTTPS_CERT_PATH)) {
+  const key = fs.readFileSync(HTTPS_KEY_PATH);
+  const cert = fs.readFileSync(HTTPS_CERT_PATH);
+  server = createHttpsServer({ key, cert }, app);
+  protocol = 'https';
+} else {
+  server = createHttpServer(app);
+  protocol = 'http';
+}
+
+initSocket(server as any);
+
+server.listen(PORT, '0.0.0.0', async () => {
   console.log(`
 =============================================================
   GMAO Simply GMAO API
 =============================================================
   Environnement : ${NODE_ENV}
+  Protocole     : ${protocol.toUpperCase()}
   Port          : ${PORT}
-  Healthcheck   : http://localhost:${PORT}/api/health
+  URL           : ${protocol}://<IP>:${PORT}
+  Healthcheck   : ${protocol}://localhost:${PORT}/api/health
 =============================================================
   `);
 

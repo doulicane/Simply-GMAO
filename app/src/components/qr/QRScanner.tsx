@@ -88,7 +88,7 @@ export function QRScanner({ onScan, onClose, className }: QRScannerProps) {
   return (
     <div className={cn('fixed inset-0 z-[100] bg-black flex flex-col', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80">
+      <div className="flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] bg-black/80">
         <h2 className="text-white text-lg font-semibold">Scanner un QR code</h2>
         <div className="flex items-center gap-2">
           <button
