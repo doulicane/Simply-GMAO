@@ -1,0 +1,58 @@
+import { vi } from 'vitest';
+
+export const prisma = {
+  user: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+  },
+  equipment: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+  },
+  workOrder: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+  },
+  stockItem: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+    fields: { stockMinimum: 'stockMinimum' },
+  },
+  stockMovement: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  preventivePlan: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  ligne: { findUnique: vi.fn() },
+  sousEnsemble: { findMany: vi.fn(), createMany: vi.fn() },
+  compteurReleve: { create: vi.fn() },
+  auditLog: { create: vi.fn() },
+  $transaction: vi.fn((cb: any) => cb(prisma)),
+  $queryRaw: vi.fn(),
+  $disconnect: vi.fn(),
+};
